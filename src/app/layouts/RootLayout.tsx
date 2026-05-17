@@ -14,16 +14,16 @@ const promoContent = {
   subtitle: "Nikmati penawaran khusus untuk booking wedding, prewedding, studio, atau event bulan ini.",
   image: mediaAssets.ui.promo,
   benefits: [
-    "Konsultasi konsep gratis",
-    "H+2 highlight photos",
-    "Akses private client portal",
+    "Konsultasi konsep eksklusif",
+    "Foto pilihan dikirim H+2",
+    "Akses private client gallery",
     "Pilihan album premium",
   ],
-  primaryButtonText: "Booking Sekarang",
+  primaryButtonText: "Konsultasi Sekarang",
   primaryButtonUrl: "/packages",
   secondaryButtonText: "Lihat Paket",
   secondaryButtonUrl: "/packages",
-  note: "Slot terbatas. Jadwal booking dikonfirmasi setelah DP diverifikasi.",
+  note: "Slot terbatas bulan ini. Tanggal akan dikunci setelah DP terverifikasi.",
 };
 
 export default function RootLayout() {
