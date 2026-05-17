@@ -386,39 +386,64 @@ export default function HomePage() {
       </section>
 
       {/* About Preview */}
-      <section className="py-20 lg:py-32 px-6 lg:px-8 bg-background">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <div className="w-12 h-[1px] bg-premium-beige mb-8" />
-              <h2
-                className="text-4xl lg:text-5xl mb-6"
-                style={{ fontFamily: "var(--font-heading)" }}
-              >
-                Every Frame Has a Feeling
-              </h2>
-              <p className="text-foreground-secondary leading-relaxed mb-6">
-                Danivisual adalah studio visual yang berfokus pada cerita, rasa, dan detail. Dari
-                janji pernikahan, prewedding, hingga event penting, setiap frame dibuat untuk
-                menjadi kenangan yang bertahan lama.
-              </p>
-              <p className="text-foreground-secondary leading-relaxed mb-8">
-                Kami percaya bahwa fotografi bukan hanya tentang mengabadikan momen, tetapi tentang
-                merasakan kembali emosi yang terjadi di dalamnya.
-              </p>
-              <Link
-                to="/about"
-                className="inline-flex items-center px-6 py-3 bg-dark-premium text-white hover:bg-dark-premium/90 transition-all rounded-sm text-sm"
-              >
-                Meet Danivisual
-              </Link>
+      <section className="bg-background px-5 py-14 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid overflow-hidden border border-border-line bg-white lg:grid-cols-[0.95fr_0.82fr]">
+            <div className="flex items-center px-6 py-10 md:px-10 lg:px-14">
+              <div className="max-w-xl">
+                <div className="mb-6 flex items-center gap-4">
+                  <span className="h-px w-12 bg-premium-beige" />
+                  <span className="text-[10px] uppercase tracking-[0.28em] text-premium-beige">About Danivisual</span>
+                </div>
+                <h2
+                  className="mb-5 text-3xl leading-tight lg:text-4xl"
+                  style={{ fontFamily: "var(--font-heading)" }}
+                >
+                  Every Frame Has a Feeling
+                </h2>
+                <p className="mb-4 text-sm leading-relaxed text-foreground-secondary">
+                  Danivisual adalah studio visual yang berfokus pada cerita, rasa, dan detail. Dari
+                  janji pernikahan, prewedding, hingga event penting, setiap frame dibuat untuk
+                  menjadi kenangan yang bertahan lama.
+                </p>
+                <p className="mb-7 text-sm leading-relaxed text-foreground-secondary">
+                  Kami percaya bahwa fotografi bukan hanya tentang mengabadikan momen, tetapi tentang
+                  merasakan kembali emosi yang terjadi di dalamnya.
+                </p>
+                <div className="mb-7 grid max-w-md grid-cols-3 border-y border-border-line py-4 text-center">
+                  <div>
+                    <p className="text-xl" style={{ fontFamily: "var(--font-heading)" }}>Editorial</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-foreground-secondary">Style</p>
+                  </div>
+                  <div className="border-x border-border-line">
+                    <p className="text-xl" style={{ fontFamily: "var(--font-heading)" }}>Wedding</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-foreground-secondary">Focus</p>
+                  </div>
+                  <div>
+                    <p className="text-xl" style={{ fontFamily: "var(--font-heading)" }}>Timeless</p>
+                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-foreground-secondary">Mood</p>
+                  </div>
+                </div>
+                <Link
+                  to="/about"
+                  className="group inline-flex min-h-12 items-center gap-3 border border-dark-premium bg-dark-premium px-6 text-xs uppercase tracking-[0.18em] text-white transition-all hover:bg-white hover:text-dark-premium"
+                >
+                  Meet Danivisual
+                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
+                </Link>
+              </div>
             </div>
-            <div className="relative">
+            <div className="relative min-h-[360px] bg-background-soft lg:min-h-[520px]">
               <img
                 src={mediaAssets.wedding.detailPortrait}
                 alt="About Danivisual"
-                className="w-full rounded-sm"
+                className="h-full w-full object-cover"
               />
+              <div className="absolute inset-0 bg-gradient-to-t from-black/18 to-transparent" />
+              <div className="absolute bottom-5 left-5 border border-white/35 bg-black/20 px-4 py-3 text-white backdrop-blur-sm">
+                <p className="text-[10px] uppercase tracking-[0.24em] text-white/70">Crafted for</p>
+                <p className="mt-1 text-sm">Wedding Stories</p>
+              </div>
             </div>
           </div>
         </div>
