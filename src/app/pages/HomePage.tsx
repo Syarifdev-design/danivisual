@@ -164,18 +164,29 @@ export default function HomePage() {
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/62 via-black/20 to-black/72 sm:from-black/54 sm:via-black/22 sm:to-black/68" />
         <div className="absolute inset-x-0 top-0 z-10 h-40 bg-gradient-to-b from-black/60 to-transparent sm:h-40" />
 
-        <div className="relative z-20 mx-auto flex h-full w-full max-w-5xl items-end justify-center px-6 pb-16 pt-24 text-center text-white sm:items-center sm:px-8 sm:pb-0 sm:pt-20">
-          <div className="w-full max-w-[420px] sm:max-w-xl">
-            <div className="mx-auto mb-6 h-[1px] w-14 bg-soft-gold sm:mb-7 sm:w-16" />
-            <p className="mx-auto mb-7 max-w-[280px] text-xs font-medium uppercase tracking-[0.22em] text-white/88 sm:max-w-none sm:text-sm">
-              Reserve your wedding date with Danivisual.
+        <div className="relative z-20 mx-auto flex h-full w-full max-w-5xl items-end justify-center px-6 pb-14 pt-24 text-center text-white sm:items-center sm:px-8 sm:pb-0 sm:pt-20">
+          <div className="w-full max-w-[430px] border border-white/18 bg-black/18 px-5 py-6 shadow-[0_24px_80px_rgba(0,0,0,0.30)] backdrop-blur-[2px] sm:max-w-[560px] sm:px-8 sm:py-8">
+            <div className="mx-auto mb-5 flex items-center justify-center gap-4 sm:mb-6">
+              <span className="h-px w-12 bg-soft-gold" />
+              <span className="text-[10px] font-medium uppercase tracking-[0.32em] text-white/82">Wedding Date</span>
+              <span className="h-px w-12 bg-soft-gold" />
+            </div>
+            <h1 className="mx-auto mb-4 max-w-[360px] text-4xl leading-[1.02] sm:max-w-none sm:text-5xl lg:text-6xl" style={{ fontFamily: "var(--font-heading)", fontWeight: 400 }}>
+              Reserve Your Story
+            </h1>
+            <p className="mx-auto mb-7 max-w-[310px] text-sm leading-relaxed text-white/84 sm:max-w-[440px] sm:text-base">
+              Amankan tanggal wedding Anda dengan booking cepat, clean, dan tanpa proses yang ribet.
             </p>
             <Link
               to="/packages"
-              className="mx-auto flex min-h-14 w-full items-center justify-center rounded-xl bg-black px-8 py-4 text-sm font-semibold uppercase tracking-[0.18em] text-white shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:bg-black/90 sm:min-h-[58px] sm:max-w-[360px]"
+              className="group mx-auto flex min-h-[60px] w-full items-center justify-between rounded-full border border-soft-gold/70 bg-black px-5 py-3 text-sm font-semibold uppercase tracking-[0.22em] text-white shadow-[0_18px_45px_rgba(0,0,0,0.36)] transition-all hover:-translate-y-0.5 hover:border-white/80 hover:bg-white hover:text-black sm:max-w-[390px]"
             >
-              BOOKING NOW
+              <span className="pl-2">BOOKING NOW</span>
+              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black transition-all group-hover:bg-black group-hover:text-white">
+                <ArrowRight size={17} />
+              </span>
             </Link>
+            <p className="mt-4 text-[11px] uppercase tracking-[0.22em] text-white/62">Wedding Basic starts from 1,9 jt</p>
           </div>
         </div>
 
