@@ -1,20 +1,15 @@
 import { MapPin, MessageCircle, Instagram, Youtube } from "lucide-react";
 import { Link } from "react-router";
+import PageIntro from "../components/PageIntro";
 
 export default function ContactPage() {
   return (
     <div className="min-h-screen">
-      <section className="py-20 px-6 lg:px-8 bg-background-soft border-b border-border-line">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="w-16 h-[1px] bg-premium-beige mx-auto mb-8" />
-          <h1 className="text-4xl lg:text-6xl mb-4" style={{ fontFamily: "var(--font-heading)" }}>
-            Get in Touch
-          </h1>
-          <p className="text-foreground-secondary max-w-2xl mx-auto">
-            Mari ceritakan rencana wedding, prewedding, atau event Anda
-          </p>
-        </div>
-      </section>
+      <PageIntro
+        eyebrow="Start the Conversation"
+        title="Get in Touch"
+        description="Mari ceritakan rencana wedding, prewedding, atau event Anda. Tim kami akan membantu merapikan kebutuhan visual sejak awal."
+      />
 
       <section className="py-20 px-6 lg:px-8">
         <div className="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-2 gap-16">

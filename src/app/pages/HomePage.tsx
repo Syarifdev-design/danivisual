@@ -13,6 +13,13 @@ type HeroSlide = {
 
 const heroSlides: HeroSlide[] = [
   {
+    id: "opening-film",
+    type: "video",
+    src: mediaAssets.hero.openingVideo,
+    poster: mediaAssets.hero.akad,
+    alt: "Video pembuka wedding Danivisual",
+  },
+  {
     id: "wedding-story",
     type: "image",
     src: mediaAssets.hero.akad,
@@ -158,13 +165,40 @@ const visualServices = [
   },
 ];
 
+const aboutSlides = [
+  {
+    id: "vow-detail",
+    image: mediaAssets.wedding.detailPortrait,
+    alt: "Pasangan wedding Danivisual saat momen cincin",
+  },
+  {
+    id: "couple-stage",
+    image: mediaAssets.wedding.couplePortrait,
+    alt: "Potret pasangan wedding Danivisual di pelaminan",
+  },
+  {
+    id: "akad-close",
+    image: mediaAssets.wedding.ceremony,
+    alt: "Momen akad wedding Danivisual",
+  },
+];
+
 export default function HomePage() {
   const [activeSlide, setActiveSlide] = useState(0);
+  const [activeAboutSlide, setActiveAboutSlide] = useState(0);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
       setActiveSlide((current) => (current + 1) % heroSlides.length);
     }, 7000);
+
+    return () => window.clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveAboutSlide((current) => (current + 1) % aboutSlides.length);
+    }, 5200);
 
     return () => window.clearInterval(timer);
   }, []);
@@ -433,16 +467,38 @@ export default function HomePage() {
                 </Link>
               </div>
             </div>
-            <div className="relative min-h-[360px] bg-background-soft lg:min-h-[520px]">
-              <img
-                src={mediaAssets.wedding.detailPortrait}
-                alt="About Danivisual"
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/18 to-transparent" />
+            <div className="relative min-h-[360px] overflow-hidden bg-background-soft lg:min-h-[520px]">
+              {aboutSlides.map((slide, index) => (
+                <img
+                  key={slide.id}
+                  src={slide.image}
+                  alt={slide.alt}
+                  loading={index === 0 ? "eager" : "lazy"}
+                  className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform,filter] duration-[1400ms] ease-[cubic-bezier(.22,1,.36,1)] ${
+                    activeAboutSlide === index
+                      ? "scale-100 opacity-100 blur-0"
+                      : "scale-[1.045] opacity-0 blur-[1px]"
+                  }`}
+                />
+              ))}
+              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.04)_0%,rgba(0,0,0,0.08)_44%,rgba(0,0,0,0.34)_100%)]" />
+              <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/10 to-transparent" />
               <div className="absolute bottom-5 left-5 border border-white/35 bg-black/20 px-4 py-3 text-white backdrop-blur-sm">
                 <p className="text-[10px] uppercase tracking-[0.24em] text-white/70">Crafted for</p>
                 <p className="mt-1 text-sm">Wedding Stories</p>
+              </div>
+              <div className="absolute bottom-6 right-5 flex items-center gap-2" aria-label="About photo slider">
+                {aboutSlides.map((slide, index) => (
+                  <button
+                    key={slide.id}
+                    type="button"
+                    aria-label={`Show ${slide.alt}`}
+                    onClick={() => setActiveAboutSlide(index)}
+                    className={`h-1.5 rounded-full transition-all duration-500 ${
+                      activeAboutSlide === index ? "w-9 bg-white" : "w-3 bg-white/45 hover:bg-white/75"
+                    }`}
+                  />
+                ))}
               </div>
             </div>
           </div>
@@ -450,33 +506,54 @@ export default function HomePage() {
       </section>
 
       {/* How It Works */}
-      <section className="py-16 lg:py-32 px-5 lg:px-8 bg-background-soft">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+      <section className="bg-background-soft px-5 py-16 lg:px-8 lg:py-28">
+        <div className="mx-auto max-w-6xl">
+          <div className="mx-auto mb-14 max-w-2xl text-center">
+            <div className="mb-5 flex items-center justify-center gap-4">
+              <span className="h-px w-10 bg-premium-beige" />
+              <span className="text-[10px] uppercase tracking-[0.32em] text-premium-beige">Booking Flow</span>
+              <span className="h-px w-10 bg-premium-beige" />
+            </div>
             <h2
-              className="text-4xl lg:text-5xl mb-4"
+              className="mb-4 text-4xl leading-tight lg:text-5xl"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               How It Works
             </h2>
+            <p className="mx-auto max-w-xl text-sm leading-relaxed text-foreground-secondary">
+              Empat tahap sederhana untuk mengunci tanggal dan memastikan setiap detail dokumentasi tertata rapi.
+            </p>
           </div>
 
-          <div className="relative mx-auto max-w-2xl space-y-8 md:grid md:max-w-none md:grid-cols-2 md:space-y-0 lg:grid-cols-4 md:gap-8">
+          <div className="relative grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+            <div className="pointer-events-none absolute left-[12.5%] right-[12.5%] top-[42px] hidden h-px bg-gradient-to-r from-transparent via-premium-beige/55 to-transparent lg:block" />
             {[
               { step: "01", title: "Pilih Paket", description: "Pilih kategori, paket, dan jenis layanan." },
               { step: "02", title: "Checkout & DP", description: "Isi data acara dan upload bukti DP." },
               { step: "03", title: "Akun Otomatis", description: "Akun customer dibuat setelah DP diverifikasi." },
               { step: "04", title: "Pantau Progress", description: "Lihat My Booking dan Progress di portal client." },
             ].map((item, index) => (
-              <div key={index} className="relative pl-12 text-left md:pl-0 md:text-center">
-                {index < 3 && <div className="absolute left-[15px] top-10 h-[calc(100%+32px)] w-px bg-premium-beige/50 md:hidden" />}
-                <div className="absolute left-0 top-1 flex h-8 w-8 items-center justify-center border border-premium-beige bg-background-soft text-xs text-premium-beige md:static md:mx-auto md:mb-4 md:h-auto md:w-auto md:border-0 md:bg-transparent md:text-6xl md:text-premium-beige/20" style={{ fontFamily: "var(--font-heading)" }}>
-                  {item.step}
+              <div
+                key={item.step}
+                className="group relative overflow-hidden border border-border-line bg-white px-6 py-7 shadow-[0_18px_55px_rgba(24,20,16,0.04)] transition-all duration-500 hover:-translate-y-1 hover:border-premium-beige/70 hover:shadow-[0_24px_70px_rgba(24,20,16,0.08)]"
+              >
+                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-premium-beige/70 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                <div className="mb-7 flex items-center justify-between">
+                  <span
+                    className="text-5xl leading-none text-premium-beige/18 transition-colors duration-500 group-hover:text-premium-beige/32"
+                    style={{ fontFamily: "var(--font-heading)" }}
+                  >
+                    {item.step}
+                  </span>
+                  <span className="flex h-9 w-9 items-center justify-center border border-premium-beige/35 bg-background-soft text-[10px] uppercase tracking-[0.12em] text-premium-beige">
+                    {String(index + 1).padStart(2, "0")}
+                  </span>
                 </div>
-                <h3 className="text-xl mb-2" style={{ fontFamily: "var(--font-heading)" }}>
+                <h3 className="mb-3 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
                   {item.title}
                 </h3>
-                <p className="text-sm text-foreground-secondary">{item.description}</p>
+                <p className="min-h-[3rem] text-sm leading-relaxed text-foreground-secondary">{item.description}</p>
+                <div className="mt-7 h-px w-12 bg-premium-beige/45 transition-all duration-500 group-hover:w-20 group-hover:bg-premium-beige" />
               </div>
             ))}
           </div>
@@ -484,31 +561,40 @@ export default function HomePage() {
       </section>
 
       {/* Booking CTA */}
-      <section className="relative overflow-hidden px-6 py-20 text-white lg:px-8 lg:py-32">
-        <img
-          src={mediaAssets.ui.ctaBackground}
-          alt=""
+      <section className="relative overflow-hidden bg-black px-6 py-20 text-white lg:px-8 lg:py-32">
+        <video
+          className="absolute inset-0 h-full w-full object-cover opacity-[0.78] saturate-[1.08] contrast-[1.14]"
+          src={mediaAssets.ui.ctaBackgroundVideo}
+          autoPlay
+          muted
+          loop
+          playsInline
           aria-hidden="true"
-          className="absolute inset-0 h-full w-full object-cover object-center"
-          loading="lazy"
         />
-        <div className="absolute inset-0 bg-black/72" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(255,255,255,0.10),transparent_34%),linear-gradient(90deg,rgba(0,0,0,0.42),transparent_28%,transparent_72%,rgba(0,0,0,0.42))]" />
-        <div className="relative z-10 max-w-4xl mx-auto text-center">
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.90)_0%,rgba(0,0,0,0.56)_36%,rgba(0,0,0,0.50)_64%,rgba(0,0,0,0.90)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(216,199,163,0.16)_0%,rgba(0,0,0,0.12)_32%,rgba(0,0,0,0.76)_76%)]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-soft-gold/55 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-soft-gold/45 to-transparent" />
+        <div className="relative z-10 mx-auto max-w-4xl text-center">
+          <div className="mx-auto mb-6 flex items-center justify-center gap-4">
+            <span className="h-px w-12 bg-soft-gold/80" />
+            <span className="text-[10px] uppercase tracking-[0.32em] text-soft-gold">Start Your Story</span>
+            <span className="h-px w-12 bg-soft-gold/80" />
+          </div>
           <h2
-            className="text-4xl lg:text-5xl mb-6"
+            className="mb-6 text-4xl leading-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)] lg:text-5xl"
             style={{ fontFamily: "var(--font-heading)" }}
           >
             Let's Create Your Visual Story
           </h2>
-          <p className="text-lg text-white/90 mb-10 max-w-2xl mx-auto">
+          <p className="mx-auto mb-10 max-w-2xl text-base leading-8 text-white/88 sm:text-lg">
             Ceritakan rencana wedding, prewedding, atau event Anda. Tim Danivisual siap membantu
             mengabadikannya dengan indah.
           </p>
-          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+          <div className="flex flex-col justify-center gap-4 sm:flex-row">
             <Link
               to="/packages"
-              className="px-8 py-4 bg-white text-foreground hover:bg-white/90 transition-all rounded-sm text-sm tracking-wide"
+              className="border border-white bg-white px-8 py-4 text-sm font-medium tracking-wide text-foreground shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:bg-soft-gold hover:text-black"
             >
               View Packages
             </Link>
@@ -516,7 +602,7 @@ export default function HomePage() {
               href="https://wa.me/6282337279636"
               target="_blank"
               rel="noopener noreferrer"
-              className="px-8 py-4 border border-white text-white hover:bg-white/10 transition-all rounded-sm text-sm tracking-wide"
+              className="border border-white/70 bg-black/18 px-8 py-4 text-sm font-medium tracking-wide text-white backdrop-blur-[2px] transition-all hover:-translate-y-0.5 hover:border-soft-gold hover:bg-white/12"
             >
               Chat via WhatsApp
             </a>

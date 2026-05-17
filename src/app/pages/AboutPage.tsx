@@ -1,5 +1,6 @@
 import { Heart, Eye, Users, Camera, Sparkles, CheckCircle, Quote } from "lucide-react";
 import { Link } from "react-router";
+import PageIntro from "../components/PageIntro";
 import { mediaAssets } from "../data/mediaAssets";
 
 export default function AboutPage() {
@@ -72,21 +73,11 @@ export default function AboutPage() {
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
-      <section className="py-20 px-6 lg:px-8 bg-background-soft border-b border-border-line">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="w-16 h-[1px] bg-premium-beige mx-auto mb-8" />
-          <h1
-            className="text-4xl lg:text-6xl mb-4"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Every Frame Has a Feeling
-          </h1>
-          <p className="text-foreground-secondary max-w-2xl mx-auto">
-            Danivisual adalah lebih dari sekadar fotografi. Kami adalah storyteller yang
-            mengabadikan emosi, momen, dan kenangan yang akan Anda hargai selamanya.
-          </p>
-        </div>
-      </section>
+      <PageIntro
+        eyebrow="About Studio"
+        title="Every Frame Has a Feeling"
+        description="Danivisual adalah lebih dari sekadar fotografi. Kami adalah storyteller yang mengabadikan emosi, momen, dan kenangan yang akan Anda hargai selamanya."
+      />
 
       {/* Our Story */}
       <section className="py-24 px-6 lg:px-8 bg-background">
@@ -168,18 +159,35 @@ export default function AboutPage() {
       </section>
 
       {/* Stats Section */}
-      <section className="py-24 px-6 lg:px-8 bg-dark-premium text-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-8">
+      <section className="relative overflow-hidden bg-dark-premium px-6 py-20 text-white lg:px-8 lg:py-24">
+        <video
+          className="absolute inset-0 h-full w-full object-cover opacity-36 mix-blend-screen"
+          src={mediaAssets.ui.statsBackground}
+          autoPlay
+          muted
+          loop
+          playsInline
+          aria-hidden="true"
+        />
+        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.92)_0%,rgba(0,0,0,0.74)_48%,rgba(0,0,0,0.92)_100%)]" />
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(216,199,163,0.16),transparent_46%)]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-soft-gold/55 to-transparent" />
+        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-soft-gold/35 to-transparent" />
+
+        <div className="relative z-10 mx-auto max-w-6xl">
+          <div className="grid grid-cols-2 gap-x-6 gap-y-10 lg:grid-cols-4 lg:gap-8">
             {stats.map((stat, index) => (
-              <div key={index} className="text-center">
+              <div key={index} className="group relative text-center">
+                {index > 0 && (
+                  <div className="absolute bottom-2 left-0 top-2 hidden w-px bg-gradient-to-b from-transparent via-white/18 to-transparent lg:block" />
+                )}
                 <div
-                  className="text-5xl lg:text-6xl mb-3 text-soft-gold"
+                  className="mb-3 text-5xl text-soft-gold drop-shadow-[0_8px_26px_rgba(216,199,163,0.16)] transition-colors duration-500 group-hover:text-white lg:text-6xl"
                   style={{ fontFamily: "var(--font-heading)" }}
                 >
                   {stat.number}
                 </div>
-                <div className="text-sm uppercase tracking-widest text-white/80">
+                <div className="text-xs uppercase tracking-[0.24em] text-white/76 sm:text-sm">
                   {stat.label}
                 </div>
               </div>
@@ -189,32 +197,55 @@ export default function AboutPage() {
       </section>
 
       {/* Why Choose Us */}
-      <section className="py-24 px-6 lg:px-8 bg-background">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
+      <section className="bg-background px-6 py-20 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="grid grid-cols-1 items-center gap-12 lg:grid-cols-[0.92fr_1.08fr] lg:gap-16">
             <div className="relative order-2 lg:order-1">
-              <div className="aspect-[4/3] rounded-sm overflow-hidden">
-                <img
-                  src={mediaAssets.wedding.ringWide}
-                  alt="Why Choose Us"
-                  className="w-full h-full object-cover"
-                />
+              <div className="absolute -left-5 -top-5 h-28 w-28 border-l border-t border-premium-beige/60" />
+              <div className="absolute -bottom-5 -right-5 h-28 w-28 border-b border-r border-premium-beige/60" />
+              <div className="relative overflow-hidden border border-border-line bg-background-soft p-3 shadow-[0_26px_80px_rgba(24,20,16,0.08)]">
+                <div className="aspect-[4/3] overflow-hidden">
+                  <img
+                    src={mediaAssets.wedding.ringWide}
+                    alt="Why Choose Us"
+                    className="h-full w-full object-cover"
+                  />
+                </div>
+                <div className="absolute inset-3 bg-[linear-gradient(180deg,transparent_45%,rgba(0,0,0,0.30)_100%)]" />
+                <div className="absolute bottom-7 left-7 border border-white/35 bg-black/25 px-4 py-3 text-white backdrop-blur-sm">
+                  <p className="text-[10px] uppercase tracking-[0.24em] text-white/72">Premium Detail</p>
+                  <p className="mt-1 text-sm">Consistent Visual Quality</p>
+                </div>
               </div>
             </div>
             <div className="order-1 lg:order-2">
-              <div className="w-12 h-[1px] bg-premium-beige mb-8" />
-              <h2 className="text-4xl lg:text-5xl mb-6" style={{ fontFamily: "var(--font-heading)" }}>
+              <div className="mb-5 flex items-center gap-4">
+                <span className="h-px w-12 bg-premium-beige" />
+                <span className="text-[10px] uppercase tracking-[0.3em] text-premium-beige">Why Us</span>
+              </div>
+              <h2 className="mb-5 max-w-2xl text-4xl leading-tight lg:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>
                 Why Choose Danivisual
               </h2>
-              <p className="text-foreground-secondary leading-relaxed mb-8">
+              <p className="mb-8 max-w-2xl text-sm leading-7 text-foreground-secondary sm:text-base">
                 Kami memahami bahwa memilih fotografer untuk hari besar Anda adalah keputusan
-                penting. Inilah yang membuat kami berbeda:
+                penting. Setiap proses dibuat rapi, transparan, dan diarahkan untuk hasil visual
+                yang konsisten.
               </p>
-              <div className="space-y-4">
+              <div className="grid gap-3 sm:grid-cols-2">
                 {whyChooseUs.map((item, index) => (
-                  <div key={index} className="flex items-start gap-3">
-                    <CheckCircle size={20} className="text-premium-beige shrink-0 mt-0.5" />
-                    <p className="text-foreground-secondary">{item}</p>
+                  <div
+                    key={item}
+                    className="group flex min-h-[92px] items-start gap-3 border border-border-line bg-white p-4 transition-all duration-300 hover:border-premium-beige/65 hover:shadow-[0_16px_45px_rgba(24,20,16,0.06)]"
+                  >
+                    <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center border border-premium-beige/45 bg-background-soft text-premium-beige transition-colors duration-300 group-hover:bg-premium-beige group-hover:text-white">
+                      <CheckCircle size={15} strokeWidth={1.8} />
+                    </span>
+                    <div>
+                      <p className="mb-1 text-[10px] uppercase tracking-[0.22em] text-premium-beige">
+                        {String(index + 1).padStart(2, "0")}
+                      </p>
+                      <p className="text-sm leading-6 text-foreground-secondary">{item}</p>
+                    </div>
                   </div>
                 ))}
               </div>

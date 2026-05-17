@@ -1,5 +1,6 @@
 import { ArrowRight, Check, Clock3, GalleryHorizontal, LayoutDashboard, Sparkles } from "lucide-react";
 import { Link } from "react-router";
+import PageIntro from "../components/PageIntro";
 import { mediaAssets } from "../data/mediaAssets";
 
 export default function ServicesPage() {
@@ -113,20 +114,11 @@ export default function ServicesPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <section className="py-20 px-6 lg:px-8 bg-background-soft border-b border-border-line">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="w-16 h-[1px] bg-premium-beige mx-auto mb-8" />
-          <h1
-            className="text-4xl lg:text-6xl mb-4"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Our Services
-          </h1>
-          <p className="text-foreground-secondary max-w-2xl mx-auto">
-            Pilih layanan dokumentasi yang sesuai dengan kebutuhan momen Anda.
-          </p>
-        </div>
-      </section>
+      <PageIntro
+        eyebrow="Curated Services"
+        title="Our Services"
+        description="Pilih layanan dokumentasi yang sesuai dengan kebutuhan momen Anda, dirancang dengan arahan visual yang rapi, hangat, dan editorial."
+      />
 
       {/* Services */}
       <section className="py-20 px-6 lg:px-8">

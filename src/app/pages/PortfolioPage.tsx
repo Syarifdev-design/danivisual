@@ -1,5 +1,6 @@
 import { Link } from "react-router";
 import { useState } from "react";
+import PageIntro from "../components/PageIntro";
 import { mediaAssets } from "../data/mediaAssets";
 
 export default function PortfolioPage() {
@@ -199,20 +200,11 @@ export default function PortfolioPage() {
   return (
     <div className="min-h-screen">
       {/* Header */}
-      <section className="py-16 px-5 lg:py-20 lg:px-8 bg-background-soft border-b border-border-line">
-        <div className="max-w-7xl mx-auto text-center">
-          <div className="w-16 h-[1px] bg-premium-beige mx-auto mb-8" />
-          <h1
-            className="text-4xl lg:text-6xl mb-4"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Portfolio
-          </h1>
-          <p className="text-foreground-secondary max-w-2xl mx-auto">
-            Cerita visual dari wedding, prewedding, dan event yang kami abadikan.
-          </p>
-        </div>
-      </section>
+      <PageIntro
+        eyebrow="Selected Work"
+        title="Portfolio"
+        description="Cerita visual dari wedding, prewedding, dan event yang kami abadikan dengan komposisi yang bersih, intim, dan timeless."
+      />
 
       {/* Filters */}
       <section className="py-5 px-5 lg:px-8 bg-background sticky top-16 lg:top-20 z-30 border-b border-border-line">
@@ -238,7 +230,7 @@ export default function PortfolioPage() {
       {/* Albums Grid */}
       <section className="py-12 px-5 lg:py-16 lg:px-8">
         <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-3 lg:gap-6">
+          <div className="grid grid-cols-1 gap-10 md:grid-cols-2 lg:grid-cols-4 lg:gap-5">
             {filteredAlbums.map((album) => (
               <Link
                 key={album.id}

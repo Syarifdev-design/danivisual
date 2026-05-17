@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { Link } from "react-router";
-import { mediaAssets } from "../data/mediaAssets";
+import PageIntro from "../components/PageIntro";
 
 interface FAQ {
   question: string;
@@ -186,44 +186,11 @@ export default function FAQPage() {
 
   return (
     <div className="min-h-screen bg-white text-foreground">
-      <section className="border-b border-border-line bg-background-soft px-5 py-16 sm:px-8 lg:px-10 lg:py-24">
-        <div className="mx-auto grid max-w-7xl items-end gap-10 lg:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.55fr)]">
-          <div className="max-w-3xl">
-            <div className="mb-7 flex items-center gap-5">
-              <span className="h-px w-14 bg-premium-beige" />
-              <span className="text-[0.72rem] font-semibold uppercase tracking-[0.42em] text-premium-beige">
-                Client Guide
-              </span>
-            </div>
-            <h1 className="max-w-3xl text-[3rem] leading-[0.96] tracking-[-0.01em] sm:text-[4.75rem] lg:text-[6rem]">
-              Frequently Asked Questions
-            </h1>
-            <p className="mt-7 max-w-2xl text-base leading-8 text-foreground-secondary sm:text-lg">
-              Jawaban singkat untuk hal yang paling sering ditanyakan sebelum melakukan booking
-              wedding bersama Danivisual.
-            </p>
-          </div>
-
-          <div className="overflow-hidden border border-border-line bg-white">
-            <div className="relative h-64 sm:h-80">
-              <img
-                src={mediaAssets.wedding.ringPortrait}
-                alt="Danivisual wedding detail"
-                className="h-full w-full object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent" />
-              <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                <p className="text-[0.7rem] font-semibold uppercase tracking-[0.36em] text-white/75">
-                  Quick Booking
-                </p>
-                <p className="mt-2 max-w-xs text-lg leading-7">
-                  Pilih paket, upload DP, lalu admin akan follow up detail acara Anda.
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
+      <PageIntro
+        eyebrow="Client Guide"
+        title="Frequently Asked Questions"
+        description="Jawaban singkat untuk hal yang paling sering ditanyakan sebelum melakukan booking wedding bersama Danivisual."
+      />
 
       <section className="px-5 py-12 sm:px-8 lg:px-10 lg:py-20">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[300px_minmax(0,1fr)_320px]">

@@ -67,7 +67,7 @@
   /* Premium Typography */
   --font-heading: 'Cormorant Garamond', serif;
   --font-body: 'Inter', sans-serif;
-  --font-display: 'Playfair Display', serif;
+  --font-display: var(--font-heading);
 }
 
 .dark {

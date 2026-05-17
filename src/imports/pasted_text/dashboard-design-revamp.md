@@ -16,8 +16,8 @@ Gunakan tetap konsep visual:
 - Tetap terasa seperti dashboard wedding photography premium
 
 Gunakan font:
-- Heading: Cormorant Garamond / Playfair Display / Libre Baskerville
-- Body: Inter / Manrope / Helvetica Neue
+- Heading: Cormorant Garamond
+- Body: Inter
 - Label kecil: uppercase dengan letter spacing
 
 Warna:
