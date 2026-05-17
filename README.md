@@ -1,11 +1,30 @@
+# Danivisual Wedding Booking
 
-  # Premium Photography Website Design
+Premium wedding photography website and quick booking flow for Danivisual.
 
-  This is a code bundle for Premium Photography Website Design. The original project is available at https://www.figma.com/design/N7FLtnzzuOC3lf1a1owThs/Premium-Photography-Website-Design.
+## Development
 
-  ## Running the code
+Install dependencies:
 
-  Run `npm i` to install the dependencies.
+```bash
+npm install
+```
 
-  Run `npm run dev` to start the development server.
-  
+Start the development server:
+
+```bash
+npm run dev
+```
+
+Build for production:
+
+```bash
+npm run build
+```
+
+## Deployment
+
+Netlify settings:
+
+- Build command: `npm run build`
+- Publish directory: `dist`
