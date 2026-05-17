@@ -99,21 +99,22 @@ export default function HomePage() {
       </section>
 
       {/* Featured Stories */}
-      <section className="py-16 lg:py-32 px-5 lg:px-8 bg-background">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+      <section className="bg-background px-5 py-14 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="mx-auto mb-10 max-w-2xl text-center lg:mb-14">
+            <p className="mb-3 text-xs uppercase tracking-[0.28em] text-premium-beige">Selected works</p>
             <h2
-              className="text-4xl lg:text-5xl mb-4"
+              className="mb-4 text-3xl lg:text-4xl"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               Featured Stories
             </h2>
-            <p className="text-foreground-secondary max-w-2xl mx-auto">
-              Kumpulan cerita visual dari momen terbaik yang kami abadikan.
+            <p className="mx-auto max-w-xl text-sm leading-relaxed text-foreground-secondary">
+              Kurasi singkat dari cerita wedding dan editorial yang dibuat dengan rasa tenang, detail, dan timeless.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 md:gap-8">
+          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {[
               {
                 id: 1,
@@ -151,29 +152,29 @@ export default function HomePage() {
               <Link
                 key={story.id}
                 to={`/portfolio/${story.id}`}
-                className="group relative overflow-hidden bg-white border-b border-border-line pb-8 md:border md:pb-0 hover:shadow-lg transition-all"
+                className="group relative overflow-hidden border border-border-line bg-white transition-all hover:border-premium-beige"
               >
-                <div className="aspect-[4/5] overflow-hidden">
+                <div className="aspect-[5/6] overflow-hidden bg-background-soft">
                   <img
                     src={story.image}
                     alt={story.title}
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                 </div>
-                <div className="p-6">
-                  <span className="text-xs tracking-widest text-foreground-secondary uppercase">
+                <div className="p-4 md:p-5">
+                  <span className="text-[10px] tracking-[0.22em] text-premium-beige uppercase">
                     {story.category}
                   </span>
                   <h3
-                    className="text-2xl mt-2 mb-1"
+                    className="mt-2 mb-1 text-xl"
                     style={{ fontFamily: "var(--font-heading)" }}
                   >
                     {story.title}
                   </h3>
-                  <p className="text-sm text-foreground-secondary mb-1">{story.location}</p>
-                  <p className="text-sm text-foreground-secondary">{story.date}</p>
-                  <div className="mt-4 flex items-center text-sm text-foreground group-hover:text-premium-beige transition">
-                    View Story <ArrowRight size={16} className="ml-2" />
+                  <p className="mb-1 text-xs text-foreground-secondary">{story.location}</p>
+                  <p className="text-xs text-foreground-secondary">{story.date}</p>
+                  <div className="mt-4 flex items-center text-xs uppercase tracking-[0.16em] text-foreground transition group-hover:text-premium-beige">
+                    View Story <ArrowRight size={14} className="ml-2" />
                   </div>
                 </div>
               </Link>
@@ -183,18 +184,24 @@ export default function HomePage() {
       </section>
 
       {/* Service Categories */}
-      <section className="py-16 lg:py-32 px-5 lg:px-8 bg-background-soft">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-16">
+      <section className="bg-background-soft px-5 py-14 lg:px-8 lg:py-24">
+        <div className="mx-auto max-w-6xl">
+          <div className="mb-10 grid gap-5 border-b border-border-line pb-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+            <div>
+              <p className="mb-3 text-xs uppercase tracking-[0.28em] text-premium-beige">Services</p>
             <h2
-              className="text-4xl lg:text-5xl mb-4"
+              className="text-3xl lg:text-4xl"
               style={{ fontFamily: "var(--font-heading)" }}
             >
               Our Visual Experiences
             </h2>
+            </div>
+            <p className="max-w-xl text-sm leading-relaxed text-foreground-secondary lg:justify-self-end">
+              Pilihan layanan dibuat ringkas agar customer mudah memilih kebutuhan visual tanpa membaca terlalu banyak di awal.
+            </p>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10 md:gap-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
             {[
               {
                 number: "01",
@@ -229,32 +236,31 @@ export default function HomePage() {
             ].map((service, index) => (
               <div
                 key={index}
-                className="group bg-white border-b border-border-line pb-10 md:border md:pb-0 hover:shadow-lg transition-all"
+                className="group border border-border-line bg-white transition-all hover:border-premium-beige"
               >
-                <div className="mb-4 flex items-end justify-between md:hidden">
-                  <span className="text-xs uppercase tracking-[0.24em] text-premium-beige">{service.number}</span>
-                  <div className="h-px flex-1 bg-border-line ml-5" />
-                </div>
-                <div className="relative aspect-[4/5] overflow-hidden">
+                <div className="relative aspect-[4/3] overflow-hidden bg-background">
                   <img
                     src={service.image}
                     alt={service.title}
                     loading="lazy"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+                    className="h-full w-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-105"
                   />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                  <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-                    <h3 className="text-3xl md:text-2xl mb-2" style={{ fontFamily: "var(--font-heading)" }}>
-                      {service.title}
-                    </h3>
-                    <p className="text-sm text-white/90 mb-4">{service.description}</p>
-                    <Link
-                      to="/packages"
-                      className="inline-flex items-center text-sm border-b border-white/50 hover:border-white transition pb-1"
-                    >
-                      Explore Service
-                    </Link>
+                </div>
+                <div className="p-4">
+                  <div className="mb-4 flex items-center gap-3">
+                    <span className="text-[10px] uppercase tracking-[0.22em] text-premium-beige">{service.number}</span>
+                    <div className="h-px flex-1 bg-border-line" />
                   </div>
+                  <h3 className="mb-2 text-xl" style={{ fontFamily: "var(--font-heading)" }}>
+                    {service.title}
+                  </h3>
+                  <p className="min-h-[38px] text-xs leading-relaxed text-foreground-secondary">{service.description}</p>
+                  <Link
+                    to="/packages"
+                    className="mt-4 inline-flex items-center border-b border-premium-beige/60 pb-1 text-xs uppercase tracking-[0.16em] text-foreground transition hover:text-premium-beige"
+                  >
+                    Explore
+                  </Link>
                 </div>
               </div>
             ))}
