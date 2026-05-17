@@ -104,6 +104,16 @@ const STORAGE_KEY = "danivisual_booking_state_v2";
 
 const BookingContext = createContext<BookingContextType | undefined>(undefined);
 
+function normalizePackageId(value?: string) {
+  const legacyMap: Record<string, string> = {
+    "wedding-basic": "basic",
+    "wedding-premium": "premium",
+    "wedding-exclusive": "exclusive",
+  };
+
+  return value ? legacyMap[value] || value : "";
+}
+
 function normalizeEventData(raw: Partial<EventData> = {}): EventData {
   const coupleName = raw.coupleName || raw.eventName || "";
   const activeWhatsapp = raw.activeWhatsapp || raw.whatsapp || "";
@@ -150,7 +160,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
     try {
       const state = JSON.parse(stored);
       setSelectedCategoryIdState("wedding");
-      setSelectedPackageIdState(state.selectedPackageId || "");
+      setSelectedPackageIdState(normalizePackageId(state.selectedPackageId));
       setSelectedServiceTypeIdState(state.selectedServiceTypeId || "");
       setSelectedAddons(state.selectedAddons || []);
       setDeliveryMethod(state.deliveryMethod || "");
@@ -203,7 +213,7 @@ export function BookingProvider({ children }: { children: ReactNode }) {
   const setSelectedCategoryId = () => setSelectedCategoryIdState("wedding");
 
   const setSelectedPackageId = (value: string) => {
-    setSelectedPackageIdState(value);
+    setSelectedPackageIdState(normalizePackageId(value));
     setSelectedServiceTypeIdState("");
     setSelectedAddons([]);
   };

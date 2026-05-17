@@ -1,7 +1,7 @@
 import { Link, useNavigate } from "react-router";
 import { MessageCircle } from "lucide-react";
 import { useBooking } from "../contexts/BookingContext";
-import { ADMIN_WHATSAPP, DP_AMOUNT, PACKING_FEE, buildPaymentWhatsappLink, formatCurrency } from "../data/bookingData";
+import { ADMIN_WHATSAPP, DP_AMOUNT, PACKING_FEE, buildPaymentWhatsappLink, formatCurrency, formatShortPrice } from "../data/bookingData";
 
 export default function BookingReviewPage() {
   const navigate = useNavigate();
@@ -96,7 +96,7 @@ export default function BookingReviewPage() {
               <div className="space-y-4 text-sm">
                 <div className="flex justify-between gap-4">
                   <span>{selectedServiceType.name}</span>
-                  <strong>{formatCurrency(selectedServiceType.price)}</strong>
+                  <strong>{formatShortPrice(selectedServiceType.price)}</strong>
                 </div>
                 {addons.length === 0 ? (
                   <p className="text-foreground-secondary">Tidak ada add-on tambahan.</p>
@@ -104,28 +104,28 @@ export default function BookingReviewPage() {
                   addons.map(({ addon, quantity, total }) => (
                     <div key={addon.id} className="flex justify-between gap-4 text-foreground-secondary">
                       <span>{addon.name}{addon.hasQuantity ? ` x${quantity}` : ""}</span>
-                      <span>{formatCurrency(total)}</span>
+                      <span>{formatShortPrice(total)}</span>
                     </div>
                   ))
                 )}
                 {booking.deliveryMethod === "expedition" && (
                   <div className="flex justify-between gap-4 text-foreground-secondary">
                     <span>Packing ekspedisi</span>
-                    <span>{formatCurrency(PACKING_FEE)}</span>
+                    <span>{formatShortPrice(PACKING_FEE)}</span>
                   </div>
                 )}
                 <div className="border-t border-border-line pt-4">
                   <div className="flex justify-between gap-4 font-medium">
                     <span>Total sementara</span>
-                    <span>{formatCurrency(booking.calculateSubtotal())}</span>
+                    <span>{formatShortPrice(booking.calculateSubtotal())}</span>
                   </div>
                   <div className="mt-3 flex justify-between gap-4 text-foreground-secondary">
                     <span>DP</span>
-                    <span>{formatCurrency(DP_AMOUNT)}</span>
+                    <span>{formatShortPrice(DP_AMOUNT)}</span>
                   </div>
                   <div className="mt-3 flex justify-between gap-4 text-lg font-medium">
                     <span>Sisa pembayaran</span>
-                    <span>{formatCurrency(booking.calculateRemaining())}</span>
+                    <span>{formatShortPrice(booking.calculateRemaining())}</span>
                   </div>
                 </div>
               </div>

@@ -10,6 +10,7 @@ import {
   PACKING_FEE,
   buildPaymentWhatsappLink,
   formatCurrency,
+  formatShortPrice,
 } from "../data/bookingData";
 
 const inputClass = "min-h-12 w-full rounded-xl border border-border-line bg-white px-4 py-3 text-sm outline-none transition focus:border-premium-beige md:rounded-lg";
@@ -221,13 +222,13 @@ export default function CheckoutPage() {
         <div className="grid grid-cols-[1fr_auto] items-center gap-3">
           <div>
             <p className="text-xs uppercase tracking-[0.18em] text-foreground-secondary">Total sementara</p>
-            <p className="text-lg font-medium">{formatCurrency(booking.calculateSubtotal())}</p>
+            <p className="text-lg font-medium">{formatShortPrice(booking.calculateSubtotal())}</p>
           </div>
           <button
             disabled={!booking.isCheckoutReady}
             className={`min-h-12 rounded-xl px-5 text-sm ${booking.isCheckoutReady ? "bg-dark-premium text-white" : "bg-muted text-foreground-secondary"}`}
           >
-            LANJUT
+            LANJUT CHECKOUT
           </button>
         </div>
       </div>
@@ -292,7 +293,7 @@ function OrderSummary({
       <div className="space-y-4 text-sm">
         <div className="flex justify-between gap-4">
           <span>{packageName} — {serviceName}</span>
-          <strong>{formatCurrency(servicePrice)}</strong>
+          <strong>{formatShortPrice(servicePrice)}</strong>
         </div>
         {selectedAddons.length === 0 ? (
           <p className="text-foreground-secondary">Tidak ada add-on tambahan.</p>
@@ -300,14 +301,14 @@ function OrderSummary({
           selectedAddons.map(({ addon, quantity, total }) => (
             <div key={addon.id} className="flex justify-between gap-4 text-foreground-secondary">
               <span>{addon.name}{addon.hasQuantity ? ` x${quantity}` : ""}</span>
-              <span>{formatCurrency(total)}</span>
+              <span>{formatShortPrice(total)}</span>
             </div>
           ))
         )}
         {deliveryMethod === "expedition" && (
           <div className="flex justify-between gap-4 text-foreground-secondary">
             <span>Packing ekspedisi</span>
-            <span>{formatCurrency(PACKING_FEE)}</span>
+            <span>{formatShortPrice(PACKING_FEE)}</span>
           </div>
         )}
         {deliveryMethod === "cod-agent" && (
@@ -319,21 +320,21 @@ function OrderSummary({
         {deliveryMethod === "pickup-office" && (
           <div className="flex justify-between gap-4 text-foreground-secondary">
             <span>Ambil ke kantor</span>
-            <span>Rp 0</span>
+            <span>0</span>
           </div>
         )}
         <div className="border-t border-border-line pt-4">
           <div className="flex justify-between gap-4 font-medium">
             <span>Total sementara</span>
-            <span>{formatCurrency(subtotal)}</span>
+            <span>{formatShortPrice(subtotal)}</span>
           </div>
           <div className="mt-3 flex justify-between gap-4 text-foreground-secondary">
             <span>DP</span>
-            <span>{formatCurrency(DP_AMOUNT)}</span>
+            <span>{formatShortPrice(DP_AMOUNT)}</span>
           </div>
           <div className="mt-3 flex justify-between gap-4 text-lg font-medium">
             <span>Sisa pembayaran</span>
-            <span>{formatCurrency(remaining)}</span>
+            <span>{formatShortPrice(remaining)}</span>
           </div>
         </div>
       </div>

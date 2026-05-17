@@ -7,7 +7,7 @@ import ringPortrait from "../../../asset/web/ring-portrait.jpg";
 
 export type ServiceType = {
   id: string;
-  name: "Foto" | "Foto + Video" | "Video Only";
+  name: "Photo" | "Video" | "Photo + Video";
   price: number;
   includes: string[];
   sampleImages: string[];
@@ -19,6 +19,7 @@ export type PackageItem = {
   categoryId: "wedding";
   name: string;
   isMostSelected?: boolean;
+  startingPrice: number;
   price: number;
   description: string;
   benefits: string[];
@@ -35,8 +36,9 @@ export type Addon = {
   id: string;
   categoryIds: string[];
   name: string;
-  description: string;
+  description?: string;
   price: number;
+  displayPrice: string;
   unit?: string;
   hasQuantity?: boolean;
 };
@@ -45,106 +47,109 @@ const weddingSamples = [couplePortrait, akadClose, heroRing, detailPortrait, rin
 
 export const weddingPackages: PackageItem[] = [
   {
-    id: "wedding-basic",
+    id: "basic",
     categoryId: "wedding",
     name: "Wedding Basic",
     isMostSelected: false,
-    price: 5000000,
-    description: "Paket wedding ringkas untuk dokumentasi esensial yang tetap elegan.",
+    startingPrice: 1900000,
+    price: 1900000,
+    description: "",
     benefits: [],
     serviceTypes: [
       {
         id: "basic-photo",
-        name: "Foto",
-        price: 5000000,
-        includes: ["Dokumentasi foto wedding", "Edited photos", "Online preview", "Private client access"],
+        name: "Photo",
+        price: 1900000,
+        includes: ["150+ foto edited", "Album magnetic premium", "80 foto print 4R", "Print 12R + frame", "Link Google Drive"],
         sampleImages: weddingSamples.slice(0, 4),
         sampleVideoUrl: "",
       },
       {
-        id: "basic-photo-video",
-        name: "Foto + Video",
-        price: 7500000,
-        includes: ["Dokumentasi foto wedding", "Dokumentasi video", "Edited photos", "Highlight video", "Online preview"],
-        sampleImages: weddingSamples.slice(0, 5),
+        id: "basic-video",
+        name: "Video",
+        price: 2000000,
+        includes: ["Video 2 menit full highlights", "Video 1 menit IG highlights"],
+        sampleImages: weddingSamples.slice(1, 4),
         sampleVideoUrl: "",
       },
       {
-        id: "basic-video",
-        name: "Video Only",
-        price: 4500000,
-        includes: ["Dokumentasi video wedding", "Highlight video", "Online preview"],
-        sampleImages: weddingSamples.slice(1, 4),
+        id: "basic-photo-video",
+        name: "Photo + Video",
+        price: 3800000,
+        includes: ["200+ foto edited", "Album magnetic premium", "Print 12R + frame", "100 foto print 4R", "Video 2 menit full highlights", "Video 1 menit IG highlights", "Link Google Drive"],
+        sampleImages: weddingSamples.slice(0, 5),
         sampleVideoUrl: "",
       },
     ],
   },
   {
-    id: "wedding-premium",
+    id: "premium",
     categoryId: "wedding",
     name: "Wedding Premium",
     isMostSelected: true,
-    price: 8000000,
-    description: "Pilihan paling seimbang untuk wedding full day dengan output lebih lengkap.",
+    startingPrice: 2400000,
+    price: 2400000,
+    description: "",
     benefits: [],
     serviceTypes: [
       {
         id: "premium-photo",
-        name: "Foto",
-        price: 8000000,
-        includes: ["Dokumentasi foto wedding", "Edited photos", "Album selection", "Online preview", "Private client access"],
+        name: "Photo",
+        price: 2400000,
+        includes: ["200+ foto edited", "Photobook premium", "Print 12R + frame", "Flashdisk"],
         sampleImages: weddingSamples.slice(0, 5),
         sampleVideoUrl: "",
       },
       {
-        id: "premium-photo-video",
-        name: "Foto + Video",
-        price: 11000000,
-        includes: ["Dokumentasi foto wedding", "Dokumentasi video", "Edited photos", "Highlight video", "Album selection", "Online preview"],
-        sampleImages: weddingSamples,
+        id: "premium-video",
+        name: "Video",
+        price: 3000000,
+        includes: ["Video 3 menit full highlights", "Video 1 menit IG highlights"],
+        sampleImages: weddingSamples.slice(1, 5),
         sampleVideoUrl: "",
       },
       {
-        id: "premium-video",
-        name: "Video Only",
-        price: 7000000,
-        includes: ["Dokumentasi video wedding", "Highlight video", "Online preview"],
-        sampleImages: weddingSamples.slice(1, 5),
+        id: "premium-photo-video",
+        name: "Photo + Video",
+        price: 4400000,
+        includes: ["200+ foto edited", "Photobook premium", "Print 12R + frame", "Video 3 menit full highlights", "Video 1 menit IG highlights", "Link Google Drive"],
+        sampleImages: weddingSamples,
         sampleVideoUrl: "",
       },
     ],
   },
   {
-    id: "wedding-exclusive",
+    id: "exclusive",
     categoryId: "wedding",
     name: "Wedding Exclusive",
     isMostSelected: false,
-    price: 12000000,
-    description: "Coverage premium untuk wedding besar dengan detail visual lebih matang.",
+    startingPrice: 3300000,
+    price: 3300000,
+    description: "",
     benefits: [],
     serviceTypes: [
       {
         id: "exclusive-photo",
-        name: "Foto",
-        price: 12000000,
-        includes: ["Dokumentasi foto wedding premium", "Edited photos", "Premium album selection", "Online preview", "Private client access"],
-        sampleImages: weddingSamples,
-        sampleVideoUrl: "",
-      },
-      {
-        id: "exclusive-photo-video",
-        name: "Foto + Video",
-        price: 16000000,
-        includes: ["Dokumentasi foto wedding premium", "Dokumentasi video premium", "Edited photos", "Cinematic highlight video", "Premium album selection", "Online preview"],
+        name: "Photo",
+        price: 3300000,
+        includes: ["250+ foto edited", "Photobook premium", "Print 12R + frame", "Print 16R + frame", "Flashdisk"],
         sampleImages: weddingSamples,
         sampleVideoUrl: "",
       },
       {
         id: "exclusive-video",
-        name: "Video Only",
-        price: 10000000,
-        includes: ["Dokumentasi video wedding premium", "Cinematic highlight video", "Online preview"],
+        name: "Video",
+        price: 4000000,
+        includes: ["Video 4 menit full highlights", "Video 1 menit IG highlights", "SDE"],
         sampleImages: weddingSamples.slice(1),
+        sampleVideoUrl: "",
+      },
+      {
+        id: "exclusive-photo-video",
+        name: "Photo + Video",
+        price: 5000000,
+        includes: ["250+ foto edited", "Photobook premium", "Album foto keluarga premium", "Print 16R + frame", "Video 4 menit full highlights", "Video 1 menit IG highlights", "Flashdisk"],
+        sampleImages: weddingSamples,
         sampleVideoUrl: "",
       },
     ],
@@ -160,12 +165,17 @@ export const packageCategories: PackageCategory[] = [
 ];
 
 export const addons: Addon[] = [
-  { id: "drone", categoryIds: ["wedding"], name: "Drone", description: "Aerial footage sesuai izin lokasi.", price: 1500000 },
-  { id: "extra-hour", categoryIds: ["wedding"], name: "Tambahan jam dokumentasi", description: "Tambahan durasi dokumentasi per jam.", price: 500000, unit: "/ jam", hasQuantity: true },
-  { id: "large-print", categoryIds: ["wedding"], name: "Cetak foto besar", description: "Cetak foto pilihan ukuran besar.", price: 350000 },
-  { id: "extra-album", categoryIds: ["wedding"], name: "Extra album", description: "Album tambahan untuk keluarga.", price: 1200000 },
-  { id: "premium-photobook", categoryIds: ["wedding"], name: "Photobook premium", description: "Photobook dengan finishing premium.", price: 1200000 },
-  { id: "extra-videographer", categoryIds: ["wedding"], name: "Extra videographer", description: "Tambahan videografer untuk coverage lebih lengkap.", price: 1500000 },
+  { id: "album-magnetic-100-4r", categoryIds: ["wedding"], name: "Album magnetic, 100 foto print 4R", price: 450000, displayPrice: "450k" },
+  { id: "photobook-premium", categoryIds: ["wedding"], name: "Photobook premium", price: 1000000, displayPrice: "1 jt" },
+  { id: "extra-day", categoryIds: ["wedding"], name: "Extra day", price: 1200000, displayPrice: "1,2 jt", unit: "hari", hasQuantity: true },
+  { id: "add-session-photo", categoryIds: ["wedding"], name: "Add session photo / jam", price: 150000, displayPrice: "150k", unit: "jam", hasQuantity: true },
+  { id: "add-session-video", categoryIds: ["wedding"], name: "Add session video / jam", price: 250000, displayPrice: "250k", unit: "jam", hasQuantity: true },
+  { id: "print-12r-frame", categoryIds: ["wedding"], name: "Print 12R + frame", price: 150000, displayPrice: "150k" },
+  { id: "print-16r-frame", categoryIds: ["wedding"], name: "Print 16R + frame", price: 250000, displayPrice: "250k" },
+  { id: "drone-pilot", categoryIds: ["wedding"], name: "Drone + pilot", price: 400000, displayPrice: "400k" },
+  { id: "flashdisk", categoryIds: ["wedding"], name: "Flashdisk", price: 100000, displayPrice: "100k" },
+  { id: "file-mentah-video", categoryIds: ["wedding"], name: "File mentah video", price: 250000, displayPrice: "250k" },
+  { id: "mini-studio", categoryIds: ["wedding"], name: "Mini studio", price: 550000, displayPrice: "550k" },
 ];
 
 export const DP_AMOUNT = 500000;
@@ -183,12 +193,31 @@ export function formatCurrency(value: number) {
   }).format(value);
 }
 
+export function formatShortPrice(value: number) {
+  if (value >= 1000000) {
+    const millions = value / 1000000;
+    const formatted = Number.isInteger(millions) ? String(millions) : millions.toFixed(1).replace(".", ",");
+    return `${formatted} jt`;
+  }
+
+  if (value >= 1000) {
+    return `${Math.round(value / 1000)}k`;
+  }
+
+  return String(value);
+}
+
 export function findCategory(_categoryId?: string) {
   return packageCategories[0];
 }
 
 export function findPackage(packageId?: string) {
-  return weddingPackages.find((item) => item.id === packageId);
+  const legacyMap: Record<string, string> = {
+    "wedding-basic": "basic",
+    "wedding-premium": "premium",
+    "wedding-exclusive": "exclusive",
+  };
+  return weddingPackages.find((item) => item.id === (packageId ? legacyMap[packageId] || packageId : packageId));
 }
 
 export function findServiceType(serviceTypeId?: string) {

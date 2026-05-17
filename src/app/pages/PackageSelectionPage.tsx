@@ -1,6 +1,6 @@
-import { Check, ChevronRight, Minus, Play, Plus } from "lucide-react";
+import { Check, ChevronRight, Info, Minus, Play, Plus } from "lucide-react";
 import { useNavigate } from "react-router";
-import { addons, formatCurrency, weddingPackages } from "../data/bookingData";
+import { addons, formatShortPrice, weddingPackages } from "../data/bookingData";
 import { useBooking } from "../contexts/BookingContext";
 
 export default function PackageSelectionPage() {
@@ -33,7 +33,11 @@ export default function PackageSelectionPage() {
 
       <section className="px-5 py-10 pb-36 lg:px-8 lg:pb-14">
         <div className="mx-auto max-w-7xl">
-          <SectionHeader eyebrow="Step 01" title="Pilih paket wedding" />
+          <SectionHeader
+            eyebrow="Step 01"
+            title="Pilih Paket Wedding"
+            subtitle="Pilih paket yang sesuai, lalu tentukan kebutuhan Photo, Video, atau Photo + Video."
+          />
           <div className="grid gap-4 md:grid-cols-3">
             {weddingPackages.map((item) => {
               const selected = item.id === booking.selectedPackageId;
@@ -42,8 +46,8 @@ export default function PackageSelectionPage() {
                   key={item.id}
                   type="button"
                   onClick={() => booking.setSelectedPackageId(item.id)}
-                  className={`min-h-[180px] rounded-2xl border bg-white p-6 text-left transition md:rounded-xl ${
-                    selected ? "border-premium-beige bg-background-soft shadow-sm" : "border-border-line hover:border-premium-beige"
+                  className={`min-h-[220px] rounded-2xl border bg-white p-6 text-left transition md:rounded-xl ${
+                    selected ? "border-premium-beige bg-background-soft shadow-sm ring-1 ring-premium-beige/40" : "border-border-line hover:border-premium-beige"
                   }`}
                 >
                   <div className="mb-8 flex min-h-6 items-start justify-between gap-3">
@@ -59,10 +63,13 @@ export default function PackageSelectionPage() {
                   <h2 className="mb-7 text-3xl" style={{ fontFamily: "var(--font-heading)" }}>
                     {item.name}
                   </h2>
+                  <p className="mb-7 text-sm text-foreground-secondary">
+                    Mulai dari <span className="text-lg font-medium text-foreground">{formatShortPrice(item.startingPrice)}</span>
+                  </p>
                   <span className={`inline-flex min-h-11 items-center justify-center rounded-xl px-5 text-sm md:rounded-lg ${
                     selected ? "bg-dark-premium text-white" : "border border-border-line text-foreground"
                   }`}>
-                    Pilih Paket
+                    {selected ? "Paket Dipilih" : "Pilih Paket"}
                   </span>
                 </button>
               );
@@ -71,7 +78,7 @@ export default function PackageSelectionPage() {
 
           {selectedPackage && (
             <section className="mt-12">
-              <SectionHeader eyebrow="Step 02" title="Pilih jenis layanan" subtitle="Harga langsung terlihat setelah memilih paket." />
+              <SectionHeader eyebrow="Step 02" title="Pilih Jenis Layanan" subtitle="Harga langsung terlihat setelah memilih paket." />
               <div className="grid gap-3 md:grid-cols-3">
                 {selectedPackage.serviceTypes.map((service) => {
                   const selected = service.id === booking.selectedServiceTypeId;
@@ -88,7 +95,7 @@ export default function PackageSelectionPage() {
                         <h3 className="text-xl" style={{ fontFamily: "var(--font-heading)" }}>{service.name}</h3>
                         {selected && <span className="border border-premium-beige bg-white px-2 py-1 text-[11px] text-premium-beige">Selected</span>}
                       </div>
-                      <p className="text-lg font-medium">{formatCurrency(service.price)}</p>
+                      <p className="text-lg font-medium">{formatShortPrice(service.price)}</p>
                     </button>
                   );
                 })}
@@ -100,7 +107,7 @@ export default function PackageSelectionPage() {
             <section className="mt-12 grid gap-8 lg:grid-cols-[1fr_360px]">
               <div className="space-y-8">
                 <div className="border border-border-line bg-white p-5 md:p-6">
-                  <SectionHeader eyebrow="Detail paket" title="Included Experience" compact />
+                  <SectionHeader eyebrow="Detail paket" title="Include Paket" compact />
                   <ul className="grid gap-3 sm:grid-cols-2">
                     {selectedServiceType.includes.map((item) => (
                       <li key={item} className="flex min-h-12 items-center gap-3 border border-border-line px-4 py-3 text-sm text-foreground-secondary">
@@ -112,7 +119,7 @@ export default function PackageSelectionPage() {
                 </div>
 
                 <div className="border border-border-line bg-white p-5 md:p-6">
-                  <SectionHeader eyebrow="Preview" title="Contoh foto dan video" compact />
+                  <SectionHeader eyebrow="Preview" title="Contoh Foto / Preview Hasil" compact />
                   <div className="flex gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-3 md:overflow-visible">
                     {selectedServiceType.sampleImages.slice(0, 6).map((image, index) => (
                       <div key={`${image}-${index}`} className="h-56 min-w-[72%] overflow-hidden bg-background-soft md:min-w-0">
@@ -126,8 +133,18 @@ export default function PackageSelectionPage() {
                         <Play size={16} /> Lihat preview video
                       </a>
                     ) : (
-                      <p className="text-sm text-foreground-secondary">Preview video akan tersedia.</p>
+                      <p className={`text-sm text-foreground-secondary ${selectedServiceType.name !== "Photo" ? "font-medium" : ""}`}>
+                        Preview video akan tersedia.
+                      </p>
                     )}
+                  </div>
+                </div>
+
+                <div className="flex gap-4 border border-border-line bg-background-soft p-5 text-sm text-foreground-secondary md:p-6">
+                  <Info size={18} className="mt-0.5 shrink-0 text-premium-beige" />
+                  <div>
+                    <h3 className="mb-1 text-base font-medium text-foreground">Ketentuan Paket Wedding</h3>
+                    <p>Semua paket wedding memiliki batas waktu maksimal 9 jam kerja untuk acara Akad + Resepsi.</p>
                   </div>
                 </div>
 
@@ -142,11 +159,11 @@ export default function PackageSelectionPage() {
                             <input type="checkbox" checked={Boolean(selected)} onChange={() => booking.toggleAddon(addon.id)} className="mt-1 accent-black" />
                             <span>
                               <span className="block text-sm font-medium">{addon.name}</span>
-                              <span className="block text-xs text-foreground-secondary">{addon.description}</span>
+                              {addon.unit && <span className="block text-xs text-foreground-secondary">Quantity per {addon.unit}</span>}
                             </span>
                           </label>
                           <div className="flex items-center justify-between gap-4 md:justify-end">
-                            <span className="text-sm text-foreground-secondary">{formatCurrency(addon.price)} {addon.unit || ""}</span>
+                            <span className="text-sm text-foreground-secondary">{addon.displayPrice}</span>
                             {addon.hasQuantity && selected && (
                               <div className="flex items-center border border-border-line bg-white">
                                 <button type="button" onClick={() => booking.setAddonQuantity(addon.id, selected.quantity - 1)} className="flex h-9 w-9 items-center justify-center">
@@ -174,7 +191,7 @@ export default function PackageSelectionPage() {
                   addons={selectedAddonDetails}
                 />
                 <button onClick={() => navigate("/checkout")} className="mt-6 flex min-h-13 w-full items-center justify-center gap-2 rounded-xl bg-dark-premium px-6 text-sm text-white">
-                  LANJUT PILIH DATA
+                  LANJUT CHECKOUT
                   <ChevronRight size={16} />
                 </button>
               </aside>
@@ -188,10 +205,10 @@ export default function PackageSelectionPage() {
           <div className="grid grid-cols-[1fr_auto] items-center gap-3">
             <div>
               <p className="text-xs uppercase tracking-[0.18em] text-foreground-secondary">Total sementara</p>
-              <p className="text-lg font-medium">{formatCurrency(booking.calculateSubtotal())}</p>
+              <p className="text-lg font-medium">{formatShortPrice(booking.calculateSubtotal())}</p>
             </div>
             <button onClick={() => navigate("/checkout")} className="min-h-12 rounded-xl bg-dark-premium px-5 text-sm text-white">
-              LANJUT
+              LANJUT CHECKOUT
             </button>
           </div>
         </div>
@@ -229,7 +246,7 @@ function Summary({
       <div className="space-y-3 text-sm">
         <div className="flex justify-between gap-4">
           <span>{serviceName}</span>
-          <strong>{formatCurrency(servicePrice)}</strong>
+          <strong>{formatShortPrice(servicePrice)}</strong>
         </div>
         {selectedAddons.length === 0 ? (
           <p className="text-foreground-secondary">Tidak ada add-on tambahan.</p>
@@ -237,14 +254,14 @@ function Summary({
           selectedAddons.map(({ addon, quantity, total }) => (
             <div key={addon.id} className="flex justify-between gap-4 text-foreground-secondary">
               <span>{addon.name}{addon.hasQuantity ? ` x${quantity}` : ""}</span>
-              <span>{formatCurrency(total)}</span>
+              <span>{formatShortPrice(total)}</span>
             </div>
           ))
         )}
         <div className="border-t border-border-line pt-3 font-medium">
           <div className="flex justify-between gap-4">
             <span>Total sementara</span>
-            <span>{formatCurrency(servicePrice + addonTotal)}</span>
+            <span>{formatShortPrice(servicePrice + addonTotal)}</span>
           </div>
         </div>
       </div>
