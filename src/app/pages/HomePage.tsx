@@ -115,6 +115,49 @@ const featuredStories = [
   },
 ];
 
+const visualServices = [
+  {
+    number: "01",
+    title: "Wedding",
+    description: "Dokumentasi wedding dengan feel editorial, clean, dan timeless.",
+    image: mediaAssets.wedding.couplePortrait,
+    label: "Signature",
+    cta: "Booking Wedding",
+  },
+  {
+    number: "02",
+    title: "Prewedding",
+    description: "Indoor atau outdoor dengan mood yang matang.",
+    image: mediaAssets.editorial.outdoorCouple,
+    label: "Editorial",
+    cta: "Explore",
+  },
+  {
+    number: "03",
+    title: "Event",
+    description: "Celebration, gathering, dan corporate moment.",
+    image: mediaAssets.wedding.group,
+    label: "Coverage",
+    cta: "Explore",
+  },
+  {
+    number: "04",
+    title: "Studio",
+    description: "Portrait, family, dan personal branding.",
+    image: mediaAssets.wedding.ringPortrait,
+    label: "Portrait",
+    cta: "Explore",
+  },
+  {
+    number: "05",
+    title: "Lainnya",
+    description: "Momen personal dan keluarga yang ingin disimpan.",
+    image: mediaAssets.wedding.family,
+    label: "Personal",
+    cta: "Explore",
+  },
+];
+
 export default function HomePage() {
   const [activeSlide, setActiveSlide] = useState(0);
 
@@ -249,9 +292,9 @@ export default function HomePage() {
       </section>
 
       {/* Service Categories */}
-      <section className="bg-background-soft px-5 py-14 lg:px-8 lg:py-24">
+      <section className="bg-background-soft px-5 py-12 lg:px-8 lg:py-20">
         <div className="mx-auto max-w-6xl">
-          <div className="mb-10 grid gap-5 border-b border-border-line pb-8 lg:grid-cols-[0.9fr_1.1fr] lg:items-end">
+          <div className="mb-8 grid gap-5 border-b border-border-line pb-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
             <div>
               <p className="mb-3 text-xs uppercase tracking-[0.28em] text-premium-beige">Services</p>
             <h2
@@ -262,86 +305,82 @@ export default function HomePage() {
             </h2>
             </div>
             <p className="max-w-xl text-sm leading-relaxed text-foreground-secondary lg:justify-self-end">
-              Pilihan layanan dibuat ringkas agar customer mudah memilih kebutuhan visual tanpa membaca terlalu banyak di awal.
+              Pilihan layanan dibuat ringkas, fokus, dan mudah diarahkan ke booking tanpa membaca terlalu banyak di awal.
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
-            {[
-              {
-                number: "01",
-                title: "Wedding",
-                description: "Dokumentasi lengkap momen pernikahan Anda",
-                image: mediaAssets.wedding.couplePortrait,
-                featured: true,
-              },
-              {
-                number: "02",
-                title: "Prewedding",
-                description: "Konsep editorial indoor atau outdoor",
-                image: mediaAssets.editorial.outdoorCouple,
-              },
-              {
-                number: "03",
-                title: "Event",
-                description: "Dokumentasi celebration dan corporate",
-                image: mediaAssets.wedding.group,
-              },
-              {
-                number: "04",
-                title: "Studio",
-                description: "Portrait, family, dan personal branding",
-                image: mediaAssets.wedding.ringPortrait,
-              },
-              {
-                number: "05",
-                title: "Peristiwa Lainnya",
-                description: "Momen keluarga dan peristiwa personal",
-                image: mediaAssets.wedding.family,
-              },
-            ].map((service, index) => (
-              <div
-                key={index}
-                className={`group border border-border-line bg-white transition-all hover:border-premium-beige ${
-                  service.featured ? "md:col-span-6 lg:col-span-4 lg:row-span-2" : "md:col-span-3 lg:col-span-2"
-                }`}
-              >
-                <div className={`relative overflow-hidden bg-background ${service.featured ? "aspect-[4/3] lg:aspect-[4/5]" : "aspect-[16/10]"}`}>
-                  <img
-                    src={service.image}
-                    alt={service.title}
-                    loading="lazy"
-                    className="h-full w-full object-cover opacity-95 transition-transform duration-700 group-hover:scale-105"
-                  />
-                  {service.featured && (
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-5 text-white">
-                      <span className="mb-2 block text-[10px] uppercase tracking-[0.24em] text-white/75">Signature Service</span>
-                      <p className="max-w-[260px] text-sm leading-relaxed text-white/90">
-                        Fokus utama Danivisual untuk dokumentasi wedding yang clean, hangat, dan editorial.
-                      </p>
-                    </div>
-                  )}
-                </div>
-                <div className={service.featured ? "p-5 lg:p-6" : "p-4"}>
-                  <div className="mb-4 flex items-center gap-3">
-                    <span className="text-[10px] uppercase tracking-[0.22em] text-premium-beige">{service.number}</span>
-                    <div className="h-px flex-1 bg-border-line" />
-                  </div>
-                  <h3 className={service.featured ? "mb-2 text-3xl" : "mb-2 text-xl"} style={{ fontFamily: "var(--font-heading)" }}>
-                    {service.title}
-                  </h3>
-                  <p className={`${service.featured ? "max-w-sm text-sm" : "min-h-[38px] text-xs"} leading-relaxed text-foreground-secondary`}>
-                    {service.description}
+          <div className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr]">
+            <Link
+              to="/packages"
+              className="group grid overflow-hidden border border-border-line bg-white transition-all hover:border-premium-beige md:grid-cols-[0.95fr_1.05fr]"
+            >
+              <div className="relative min-h-[300px] overflow-hidden bg-background md:min-h-[360px]">
+                <img
+                  src={visualServices[0].image}
+                  alt={visualServices[0].title}
+                  loading="lazy"
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/18 to-transparent" />
+                <div className="absolute bottom-5 left-5 right-5 text-white">
+                  <span className="mb-3 block text-[10px] uppercase tracking-[0.26em] text-white/70">{visualServices[0].label} Service</span>
+                  <p className="max-w-xs text-sm leading-relaxed text-white/90">
+                    Fokus utama Danivisual untuk momen akad dan resepsi dengan visual yang rapi, hangat, dan editorial.
                   </p>
-                  <Link
-                    to="/packages"
-                    className="mt-4 inline-flex items-center border-b border-premium-beige/60 pb-1 text-xs uppercase tracking-[0.16em] text-foreground transition hover:text-premium-beige"
-                  >
-                    {service.featured ? "Booking Wedding" : "Explore"}
-                  </Link>
                 </div>
               </div>
-            ))}
+              <div className="flex flex-col justify-between p-6 lg:p-8">
+                <div>
+                  <div className="mb-8 flex items-center gap-4">
+                    <span className="text-[10px] uppercase tracking-[0.24em] text-premium-beige">{visualServices[0].number}</span>
+                    <div className="h-px flex-1 bg-border-line" />
+                  </div>
+                  <h3 className="mb-4 text-4xl lg:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>
+                    {visualServices[0].title}
+                  </h3>
+                  <p className="max-w-sm text-sm leading-relaxed text-foreground-secondary">
+                    {visualServices[0].description}
+                  </p>
+                </div>
+                <div className="mt-8 inline-flex w-fit items-center gap-3 border-b border-premium-beige pb-2 text-xs uppercase tracking-[0.2em] text-foreground transition group-hover:text-premium-beige">
+                  {visualServices[0].cta}
+                  <ArrowRight size={14} />
+                </div>
+              </div>
+            </Link>
+
+            <div className="grid gap-3 sm:grid-cols-2">
+              {visualServices.slice(1).map((service) => (
+                <Link
+                  key={service.number}
+                  to="/packages"
+                  className="group grid grid-cols-[116px_1fr] overflow-hidden border border-border-line bg-white transition-all hover:border-premium-beige sm:grid-cols-1"
+                >
+                  <div className="h-full min-h-[132px] overflow-hidden bg-background sm:h-32 sm:min-h-0">
+                    <img
+                      src={service.image}
+                      alt={service.title}
+                      loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
+                    />
+                  </div>
+                  <div className="flex min-h-[132px] flex-col justify-between p-4">
+                    <div>
+                      <div className="mb-3 flex items-center gap-3">
+                        <span className="text-[10px] uppercase tracking-[0.22em] text-premium-beige">{service.number}</span>
+                        <span className="text-[10px] uppercase tracking-[0.2em] text-foreground-secondary">{service.label}</span>
+                      </div>
+                      <h3 className="mb-2 text-xl" style={{ fontFamily: "var(--font-heading)" }}>{service.title}</h3>
+                      <p className="text-xs leading-relaxed text-foreground-secondary">{service.description}</p>
+                    </div>
+                    <div className="mt-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-foreground transition group-hover:text-premium-beige">
+                      {service.cta}
+                      <ArrowRight size={13} />
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </section>
