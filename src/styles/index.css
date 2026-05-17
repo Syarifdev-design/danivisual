@@ -42,6 +42,33 @@
   }
 }
 
+@keyframes storyMarquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-50% - 0.5rem));
+  }
+}
+
+.story-marquee {
+  mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent);
+}
+
+.story-marquee-track {
+  animation: storyMarquee 46s linear infinite;
+}
+
+.story-marquee:hover .story-marquee-track {
+  animation-play-state: paused;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .story-marquee-track {
+    animation: none;
+  }
+}
+
 .google-translate-root,
 .goog-te-gadget,
 .goog-te-banner-frame,

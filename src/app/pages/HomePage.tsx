@@ -32,6 +32,89 @@ const heroSlides: HeroSlide[] = [
   },
 ];
 
+const featuredStories = [
+  {
+    id: 1,
+    category: "WEDDING",
+    title: "Dani & Sinta",
+    location: "Four Seasons Jakarta",
+    date: "20 Januari 2026",
+    image: mediaAssets.wedding.couplePortrait,
+  },
+  {
+    id: 2,
+    category: "PREWED STUDIO",
+    title: "Rama & Dita",
+    location: "Studio Danivisual",
+    date: "15 Januari 2026",
+    image: mediaAssets.wedding.ringPortrait,
+  },
+  {
+    id: 3,
+    category: "PREWED OUTDOOR",
+    title: "Andi & Maya",
+    location: "Bromo, Jawa Timur",
+    date: "10 Januari 2026",
+    image: mediaAssets.editorial.outdoorCouple,
+  },
+  {
+    id: 4,
+    category: "EVENT",
+    title: "Corporate Gala Night",
+    location: "Grand Hyatt Jakarta",
+    date: "5 Januari 2026",
+    image: mediaAssets.wedding.group,
+  },
+  {
+    id: 5,
+    category: "AKAD CEREMONY",
+    title: "Naufal & Kirana",
+    location: "The Langham Jakarta",
+    date: "28 Desember 2025",
+    image: mediaAssets.hero.akad,
+  },
+  {
+    id: 6,
+    category: "INTIMATE WEDDING",
+    title: "Arga & Meira",
+    location: "Plataran Menteng",
+    date: "18 Desember 2025",
+    image: mediaAssets.wedding.detailPortrait,
+  },
+  {
+    id: 7,
+    category: "FAMILY SESSION",
+    title: "Hendra Family",
+    location: "InterContinental Jakarta",
+    date: "12 Desember 2025",
+    image: mediaAssets.wedding.family,
+  },
+  {
+    id: 8,
+    category: "RECEPTION",
+    title: "Rizky & Anindya",
+    location: "Ayana Midplaza",
+    date: "30 November 2025",
+    image: mediaAssets.wedding.table,
+  },
+  {
+    id: 9,
+    category: "DETAIL STORY",
+    title: "The Ring Moment",
+    location: "Private Residence",
+    date: "22 November 2025",
+    image: mediaAssets.hero.ring,
+  },
+  {
+    id: 10,
+    category: "EDITORIAL WEDDING",
+    title: "Bagas & Livia",
+    location: "Tugu Kunstkring Paleis",
+    date: "9 November 2025",
+    image: mediaAssets.hero.moment,
+  },
+];
+
 export default function HomePage() {
   const [activeSlide, setActiveSlide] = useState(0);
 
@@ -114,45 +197,15 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {[
-              {
-                id: 1,
-                category: "WEDDING",
-                title: "Dani & Sinta",
-                location: "Four Seasons Jakarta",
-                date: "20 Januari 2026",
-                image: mediaAssets.wedding.couplePortrait,
-              },
-              {
-                id: 2,
-                category: "PREWED STUDIO",
-                title: "Rama & Dita",
-                location: "Studio Danivisual",
-                date: "15 Januari 2026",
-                image: mediaAssets.wedding.ringPortrait,
-              },
-              {
-                id: 3,
-                category: "PREWED OUTDOOR",
-                title: "Andi & Maya",
-                location: "Bromo, Jawa Timur",
-                date: "10 Januari 2026",
-                image: mediaAssets.editorial.outdoorCouple,
-              },
-              {
-                id: 4,
-                category: "EVENT",
-                title: "Corporate Gala Night",
-                location: "Grand Hyatt Jakarta",
-                date: "5 Januari 2026",
-                image: mediaAssets.wedding.group,
-              },
-            ].map((story) => (
+          <div className="story-marquee -mx-5 overflow-hidden px-5 lg:-mx-8 lg:px-8">
+            <div className="story-marquee-track flex w-max gap-4">
+              {[...featuredStories, ...featuredStories].map((story, index) => (
               <Link
-                key={story.id}
+                key={`${story.id}-${index}`}
                 to={`/portfolio/${story.id}`}
-                className="group relative overflow-hidden border border-border-line bg-white transition-all hover:border-premium-beige"
+                className="group relative w-[78vw] max-w-[310px] shrink-0 overflow-hidden border border-border-line bg-white transition-all hover:border-premium-beige sm:w-[320px] lg:w-[292px]"
+                aria-hidden={index >= featuredStories.length}
+                tabIndex={index >= featuredStories.length ? -1 : 0}
               >
                 <div className="aspect-[5/6] overflow-hidden bg-background-soft">
                   <img
@@ -178,7 +231,8 @@ export default function HomePage() {
                   </div>
                 </div>
               </Link>
-            ))}
+              ))}
+            </div>
           </div>
         </div>
       </section>
