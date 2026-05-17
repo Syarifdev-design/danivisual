@@ -24,6 +24,7 @@ export default function CheckoutPage() {
   const selectedAddonDetails = booking.getSelectedAddonDetails();
   const [copied, setCopied] = useState(false);
   const [showTerms, setShowTerms] = useState(false);
+  const [missingFields, setMissingFields] = useState<string[]>([]);
 
   if (!selectedPackage || !selectedServiceType) {
     return (
@@ -55,7 +56,39 @@ export default function CheckoutPage() {
 
   const handleSubmit = (event: FormEvent) => {
     event.preventDefault();
-    if (booking.isCheckoutReady) navigate("/booking-review");
+    handleCheckoutAttempt();
+  };
+
+  const getMissingFields = () => {
+    const missing: string[] = [];
+
+    if (!selectedPackage) missing.push("Paket wedding");
+    if (!selectedServiceType) missing.push("Jenis layanan");
+    if (!booking.eventData.coupleName.trim()) missing.push("Nama pasangan");
+    if (!booking.eventData.activeWhatsapp.trim()) missing.push("Nomor WA aktif");
+    if (!booking.eventData.eventDate) missing.push("Tanggal acara");
+    if (!booking.eventData.eventLocationAddress.trim()) missing.push("Alamat lokasi acara");
+    if (!booking.eventData.eventTimePending && !booking.eventData.eventTime) missing.push("Jam acara atau centang Menyusul");
+    if (!booking.deliveryMethod) missing.push("Metode pengiriman hasil");
+    if (!booking.paymentData.proofName) missing.push("Bukti transfer DP");
+    if (!booking.termsAccepted) missing.push("Persetujuan ketentuan");
+
+    return missing;
+  };
+
+  const handleCheckoutAttempt = () => {
+    const missing = getMissingFields();
+
+    if (missing.length === 0) {
+      setMissingFields([]);
+      navigate("/booking-review");
+      return;
+    }
+
+    setMissingFields(missing);
+    window.setTimeout(() => {
+      document.getElementById("checkout-missing-alert")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 50);
   };
 
   return (
@@ -197,10 +230,26 @@ export default function CheckoutPage() {
             )}
           </section>
 
+          {missingFields.length > 0 && (
+            <div id="checkout-missing-alert" role="alert" className="rounded-2xl border border-premium-beige bg-background-soft p-5 text-sm md:rounded-xl">
+              <p className="mb-3 font-medium text-foreground">Lengkapi bagian berikut sebelum lanjut checkout:</p>
+              <ul className="grid gap-2 text-foreground-secondary sm:grid-cols-2">
+                {missingFields.map((field) => (
+                  <li key={field} className="flex gap-2">
+                    <span className="text-premium-beige">•</span>
+                    <span>{field}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <button
-            disabled={!booking.isCheckoutReady}
+            type="button"
+            aria-disabled={!booking.isCheckoutReady}
+            onClick={handleCheckoutAttempt}
             className={`hidden min-h-14 w-full rounded-2xl px-8 text-sm font-medium tracking-wide md:block md:rounded-xl ${
-              booking.isCheckoutReady ? "bg-dark-premium text-white" : "cursor-not-allowed bg-muted text-foreground-secondary"
+              booking.isCheckoutReady ? "bg-dark-premium text-white" : "cursor-pointer bg-muted text-foreground-secondary"
             }`}
           >
             LANJUT CHECKOUT
@@ -225,7 +274,9 @@ export default function CheckoutPage() {
             <p className="text-lg font-medium">{formatShortPrice(booking.calculateSubtotal())}</p>
           </div>
           <button
-            disabled={!booking.isCheckoutReady}
+            type="button"
+            aria-disabled={!booking.isCheckoutReady}
+            onClick={handleCheckoutAttempt}
             className={`min-h-12 rounded-xl px-5 text-sm ${booking.isCheckoutReady ? "bg-dark-premium text-white" : "bg-muted text-foreground-secondary"}`}
           >
             LANJUT CHECKOUT
