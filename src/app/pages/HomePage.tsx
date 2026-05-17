@@ -255,13 +255,14 @@ export default function HomePage() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-6 lg:grid-cols-12">
             {[
               {
                 number: "01",
                 title: "Wedding",
                 description: "Dokumentasi lengkap momen pernikahan Anda",
                 image: mediaAssets.wedding.couplePortrait,
+                featured: true,
               },
               {
                 number: "02",
@@ -290,30 +291,42 @@ export default function HomePage() {
             ].map((service, index) => (
               <div
                 key={index}
-                className="group border border-border-line bg-white transition-all hover:border-premium-beige"
+                className={`group border border-border-line bg-white transition-all hover:border-premium-beige ${
+                  service.featured ? "md:col-span-6 lg:col-span-4 lg:row-span-2" : "md:col-span-3 lg:col-span-2"
+                }`}
               >
-                <div className="relative aspect-[4/3] overflow-hidden bg-background">
+                <div className={`relative overflow-hidden bg-background ${service.featured ? "aspect-[4/3] lg:aspect-[4/5]" : "aspect-[16/10]"}`}>
                   <img
                     src={service.image}
                     alt={service.title}
                     loading="lazy"
-                    className="h-full w-full object-cover opacity-90 transition-transform duration-700 group-hover:scale-105"
+                    className="h-full w-full object-cover opacity-95 transition-transform duration-700 group-hover:scale-105"
                   />
+                  {service.featured && (
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/55 to-transparent p-5 text-white">
+                      <span className="mb-2 block text-[10px] uppercase tracking-[0.24em] text-white/75">Signature Service</span>
+                      <p className="max-w-[260px] text-sm leading-relaxed text-white/90">
+                        Fokus utama Danivisual untuk dokumentasi wedding yang clean, hangat, dan editorial.
+                      </p>
+                    </div>
+                  )}
                 </div>
-                <div className="p-4">
+                <div className={service.featured ? "p-5 lg:p-6" : "p-4"}>
                   <div className="mb-4 flex items-center gap-3">
                     <span className="text-[10px] uppercase tracking-[0.22em] text-premium-beige">{service.number}</span>
                     <div className="h-px flex-1 bg-border-line" />
                   </div>
-                  <h3 className="mb-2 text-xl" style={{ fontFamily: "var(--font-heading)" }}>
+                  <h3 className={service.featured ? "mb-2 text-3xl" : "mb-2 text-xl"} style={{ fontFamily: "var(--font-heading)" }}>
                     {service.title}
                   </h3>
-                  <p className="min-h-[38px] text-xs leading-relaxed text-foreground-secondary">{service.description}</p>
+                  <p className={`${service.featured ? "max-w-sm text-sm" : "min-h-[38px] text-xs"} leading-relaxed text-foreground-secondary`}>
+                    {service.description}
+                  </p>
                   <Link
                     to="/packages"
                     className="mt-4 inline-flex items-center border-b border-premium-beige/60 pb-1 text-xs uppercase tracking-[0.16em] text-foreground transition hover:text-premium-beige"
                   >
-                    Explore
+                    {service.featured ? "Booking Wedding" : "Explore"}
                   </Link>
                 </div>
               </div>
