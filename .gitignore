@@ -17,22 +17,3 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-
-# Jump Desktop apps
-asset/Jump Desktop.app/
-asset/Jump Desktop 2.app/
-
-# Audit reports
-AUDIT_REPORT_*.md
-AUDIT_REPORT_*.txt
-FINAL_*_REPORT*.md
-FINAL_*_REPORT*.txt
-PRE_LAUNCH_*.md
-PHASE*_*.md
-PHASE*_*.txt
-
-# Review files
-danivisual-review-files/
-
-# Netlify (handled separately)
-.netlify/
