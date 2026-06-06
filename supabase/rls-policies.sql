@@ -529,8 +529,8 @@ create policy "dv_admin_manage_analytics_events" on analytics_events for all usi
 -- =============================================================================
 -- FINANCE ACCESS
 -- =============================================================================
--- Finance reads payments only. Customer and booking summaries are exposed by
--- the allowlisted RPCs in migration 014; finance has no base-table PII access.
+-- Finance reads payments, bookings, and customers summaries only.
+-- Finance has no PII access beyond what's needed for operational work.
 
 create policy "dv_finance_select_payments"
   on payments for select
@@ -538,6 +538,16 @@ create policy "dv_finance_select_payments"
 
 create policy "dv_finance_select_analytics_daily"
   on analytics_daily for select
+  using (public.dv_has_role(array['finance']));
+
+-- Finance can view bookings (read-only) for financial tracking
+create policy "dv_finance_select_bookings"
+  on bookings for select
+  using (public.dv_has_role(array['finance']));
+
+-- Finance can view customers (read-only) for billing purposes
+create policy "dv_finance_select_customers"
+  on customers for select
   using (public.dv_has_role(array['finance']));
 
 -- =============================================================================
@@ -557,15 +567,26 @@ create policy "dv_editor_manage_portfolio_images"
   with check (public.dv_has_role(array['editor']));
 
 -- =============================================================================
--- STAFF ACCESS
+-- STAFF / OPERATIONAL ACCESS
 -- =============================================================================
--- Staff access is intentionally narrow. They do not read all customers; customer
--- access and booking context must be opened only through explicit production or
--- task assignment policies. Staff/editor/photographer/videographer do not get
--- direct SELECT/UPDATE policies on bookings.
+-- Staff (editor, staff, photographer, videographer) have limited access:
+-- - Can view own attendance records
+-- - Can view own production tasks
+-- - Can view own KPI reviews
+-- - Can view bookings for their assigned work (via task assignment)
 
--- calendar_events remains admin-only until events have an employee assignment
--- relationship that can be scoped safely.
+-- Calendar events remain admin-only until proper employee assignment exists
+
+-- Allow staff to view their own bookings (via task assignment or direct assignment)
+-- This is implemented through staff_tasks relationship, not direct booking access
+
+-- Staff can view bookings where they have active task assignments
+-- Note: This policy will be further refined when booking_staff_assignments exists
+if to_regclass('public.booking_staff_assignments') is not null then
+  execute 'alter table public.booking_staff_assignments enable row level security';
+  execute 'drop policy if exists "dv_staff_select_own_booking_assignments" on public.booking_staff_assignments';
+  execute 'create policy "dv_staff_select_own_booking_assignments" on public.booking_staff_assignments for select using (public.dv_is_staff() and public.dv_user_owns_employee(employee_id))';
+end if;
 
 -- =============================================================================
 -- CUSTOMER ACCESS

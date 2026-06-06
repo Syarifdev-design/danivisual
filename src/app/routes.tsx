@@ -56,12 +56,12 @@ export const router = createBrowserRouter([
   },
 
   // ============================================================================
-  // Auth Routes (Guest Only - redirect if logged in)
+  // Auth Routes (Guest Only - redirect if logged in based on role)
   // ============================================================================
   {
     path: "/login",
     Component: () => (
-      <GuestRoute redirectPath="/">
+      <GuestRoute>
         <LoginPage />
       </GuestRoute>
     ),

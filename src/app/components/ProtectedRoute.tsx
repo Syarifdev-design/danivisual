@@ -7,10 +7,13 @@
  * - Auth routes: hanya untuk non-authenticated users
  */
 
-import { ReactNode, useEffect } from "react";
+import { ReactNode, useEffect, useState } from "react";
 import { useNavigate, useLocation } from "react-router";
 import { useAuth, UserRole, ROLE_LABELS } from "../contexts/AuthContext";
 import UnauthorizedPage from "../pages/Unauthorized";
+
+// Debug mode flag - set to true to see auth flow in console
+const DEBUG_AUTH = true;
 
 // Loading Spinner Component
 function LoadingSpinner() {
@@ -41,35 +44,89 @@ export function ProtectedRoute({
   const navigate = useNavigate();
   const location = useLocation();
 
+  // Debug logging
+  if (DEBUG_AUTH) {
+    console.log("[ProtectedRoute] Render:", {
+      isAuthenticated,
+      isLoading,
+      isInitialized: true,
+      user: user ? { id: user.id, role: user.role, name: user.name } : null,
+      allowedRoles,
+      location: location.pathname,
+    });
+  }
+
+  // State to track if we've handled the redirect
+  const [hasRedirected, setHasRedirected] = useState(false);
+
   useEffect(() => {
+    // Reset redirect state when location changes
+    setHasRedirected(false);
+
+    if (DEBUG_AUTH) {
+      console.log("[ProtectedRoute] useEffect triggered:", {
+        isLoading,
+        isAuthenticated,
+        userRole: user?.role,
+        allowedRoles,
+      });
+    }
+
     // Skip redirect during loading
-    if (isLoading) return;
+    if (isLoading) {
+      if (DEBUG_AUTH) console.log("[ProtectedRoute] Skipping - still loading");
+      return;
+    }
 
     // Not authenticated - redirect to login
     if (!isAuthenticated) {
+      if (DEBUG_AUTH) console.log("[ProtectedRoute] Not authenticated - redirecting to /login");
       navigate("/login", { state: { from: location.pathname }, replace: true });
+      setHasRedirected(true);
       return;
     }
 
     // Check role-based access
-    if (allowedRoles && user && !allowedRoles.includes(user.role)) {
-      if (showUnauthorized) {
-        // Show unauthorized page
-        return;
+    if (allowedRoles && user) {
+      const hasAccess = allowedRoles.includes(user.role);
+      if (DEBUG_AUTH) {
+        console.log("[ProtectedRoute] Role check:", {
+          userRole: user.role,
+          allowedRoles,
+          hasAccess,
+        });
       }
-      // Redirect based on role
-      const redirectTo = getRedirectPath(user.role);
-      navigate(redirectTo, { replace: true });
+
+      if (!hasAccess) {
+        if (showUnauthorized) {
+          if (DEBUG_AUTH) console.log("[ProtectedRoute] No access - will show unauthorized page");
+          // Don't redirect here, let the render handle it
+          return;
+        }
+        // Redirect based on role
+        const redirectTo = getRedirectPath(user.role);
+        if (DEBUG_AUTH) console.log("[ProtectedRoute] Redirecting to:", redirectTo);
+        navigate(redirectTo, { replace: true });
+        setHasRedirected(true);
+      } else {
+        if (DEBUG_AUTH) console.log("[ProtectedRoute] Access granted!");
+      }
+    } else if (allowedRoles && !user) {
+      if (DEBUG_AUTH) console.log("[ProtectedRoute] No user but roles required - redirecting");
+      navigate("/login", { state: { from: location.pathname }, replace: true });
+      setHasRedirected(true);
     }
   }, [isAuthenticated, isLoading, user, allowedRoles, showUnauthorized, navigate, location.pathname]);
 
   // Show loading state
   if (isLoading) {
+    if (DEBUG_AUTH) console.log("[ProtectedRoute] Showing loading spinner");
     return <LoadingSpinner />;
   }
 
   // Not authenticated - show nothing (will redirect)
   if (!isAuthenticated) {
+    if (DEBUG_AUTH) console.log("[ProtectedRoute] Not authenticated - showing null (will redirect)");
     return null;
   }
 
@@ -79,6 +136,13 @@ export function ProtectedRoute({
       ? ROLE_LABELS[allowedRoles[0]]
       : allowedRoles.map(r => ROLE_LABELS[r]).join(" atau ");
 
+    if (DEBUG_AUTH) {
+      console.log("[ProtectedRoute] Showing unauthorized page:", {
+        userRole: user.role,
+        requiredRoles: requiredRoleLabel,
+      });
+    }
+
     return (
       <UnauthorizedPage
         requiredRole={requiredRoleLabel}
@@ -87,25 +151,13 @@ export function ProtectedRoute({
     );
   }
 
+  if (DEBUG_AUTH) console.log("[ProtectedRoute] Rendering children");
   return <>{children}</>;
 }
 
-// Redirect helper
+// Legacy redirect helper (kept for backward compatibility)
 function getRedirectPath(role: UserRole): string {
-  switch (role) {
-    case "customer":
-      return "/dashboard";
-    case "super_admin":
-    case "admin":
-    case "finance":
-    case "editor":
-    case "staff":
-    case "photographer":
-    case "videographer":
-      return "/admin";
-    default:
-      return "/";
-  }
+  return getRedirectPathByRole(role);
 }
 
 // ============================================================================
@@ -131,6 +183,17 @@ export function AdminRoute({
   );
 }
 
+// Internal/admin roles that should be redirected to admin panel
+const INTERNAL_ROLES: UserRole[] = [
+  "super_admin",
+  "admin",
+  "finance",
+  "editor",
+  "photographer",
+  "videographer",
+  "staff",
+];
+
 interface CustomerRouteProps {
   children: ReactNode;
   showUnauthorized?: boolean;
@@ -140,15 +203,79 @@ export function CustomerRoute({
   children,
   showUnauthorized = true,
 }: CustomerRouteProps) {
-  return (
-    <ProtectedRoute
-      allowedRoles={["customer"]}
-      showUnauthorized={showUnauthorized}
-    >
-      {children}
-    </ProtectedRoute>
-  );
+  const { isAuthenticated, isLoading, user } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
+
+  useEffect(() => {
+    if (isLoading) return;
+
+    // Not authenticated - redirect to login
+    if (!isAuthenticated) {
+      navigate("/login", { state: { from: location.pathname }, replace: true });
+      return;
+    }
+
+    // If user is logged in but has internal role - redirect to admin panel
+    if (user && INTERNAL_ROLES.includes(user.role)) {
+      if (DEBUG_AUTH) console.log("[CustomerRoute] Internal role detected, redirecting to /admin");
+      navigate("/admin", { replace: true });
+      return;
+    }
+  }, [isAuthenticated, isLoading, user, navigate, location.pathname]);
+
+  // Show loading state
+  if (isLoading) {
+    return <LoadingSpinner />;
+  }
+
+  // Not authenticated - show nothing (will redirect)
+  if (!isAuthenticated) {
+    return null;
+  }
+
+  // Internal role - show nothing (will redirect)
+  if (user && INTERNAL_ROLES.includes(user.role)) {
+    return null;
+  }
+
+  // Role check failed for customer portal
+  if (user && user.role !== "customer") {
+    if (showUnauthorized) {
+      return (
+        <UnauthorizedPage
+          requiredRole="Customer"
+          message={`Halaman ini hanya untuk customer. Akun Anda saat ini adalah ${ROLE_LABELS[user.role]}.`}
+        />
+      );
+    }
+    navigate("/login", { replace: true });
+    return null;
+  }
+
+  return <>{children}</>;
 }
+
+// Role-based redirect helper for login page redirect
+const getRedirectPathByRole = (role: UserRole): string => {
+  switch (role) {
+    case "super_admin":
+    case "admin":
+      return "/admin";
+    case "finance":
+      return "/admin/finance";
+    case "editor":
+    case "photographer":
+    case "videographer":
+      return "/admin/production";
+    case "staff":
+      return "/admin/my-kpi";
+    case "customer":
+      return "/dashboard";
+    default:
+      return "/login";
+  }
+};
 
 interface GuestRouteProps {
   children: ReactNode;
@@ -167,9 +294,18 @@ export function GuestRoute({
     if (isLoading) return;
 
     if (isAuthenticated && user) {
-      // Already logged in - redirect based on role
-      const to = redirectPath || getRedirectPath(user.role);
+      // Use role-based redirect if no explicit path provided
+      const to = redirectPath || getRedirectPathByRole(user.role);
       const from = (location.state as { from?: string })?.from;
+
+      if (DEBUG_AUTH) {
+        console.log("[GuestRoute] Redirecting authenticated user:", {
+          role: user.role,
+          from: from || "none",
+          to,
+        });
+      }
+
       navigate(from || to, { replace: true });
     }
   }, [isAuthenticated, isLoading, user, redirectPath, navigate, location]);

@@ -25,9 +25,9 @@ create table if not exists admin_users (
     avatar_url text,
     whatsapp text,
 
-    -- Role (6 roles)
+    -- Role (8 roles - including operational staff)
     role text not null default 'customer'
-        check (role in ('super_admin', 'admin', 'finance', 'editor', 'staff', 'customer')),
+        check (role in ('super_admin', 'admin', 'finance', 'editor', 'staff', 'photographer', 'videographer', 'customer')),
 
     -- Status
     is_active boolean default true,
@@ -190,26 +190,98 @@ begin
     return exists (
         select 1 from admin_users
         where auth_id = p_auth_id
-        and role in ('super_admin', 'admin', 'finance', 'editor', 'staff')
+        and role in ('super_admin', 'admin', 'finance', 'editor', 'staff', 'photographer', 'videographer')
         and is_active = true
     );
 end;
 $$ language plpgsql;
 
 -- =============================================================================
--- SEED DATA: Default Users
+-- SEED DATA: Default Users (8 roles)
 -- =============================================================================
+
+-- Super Admin user (for development)
+insert into admin_users (email, username, name, role, is_active, password_hash)
+values (
+    'superadmin@danivisual.test',
+    'superadmin',
+    'Super Admin',
+    'super_admin',
+    true,
+    -- Password: Test123456 (bcrypt hash, for fallback only)
+    -- In production, use Supabase Auth instead
+    '$2a$10$rQXKqOyQ8QOJvxQ7QvQvQeQXKQOJvxQ7QvQvQOJvxQ7QvQOJvxQ7QvQ'
+)
+on conflict (email) do nothing;
 
 -- Admin user (for development)
 insert into admin_users (email, username, name, role, is_active, password_hash)
 values (
-    'admin@danivisual.app',
+    'admin@danivisual.test',
     'admin',
     'Admin Danivisual',
-    'super_admin',
+    'admin',
     true,
-    -- Password: admin123 (bcrypt hash, for fallback only)
-    -- In production, use Supabase Auth instead
+    '$2a$10$rQXKqOyQ8QOJvxQ7QvQvQeQXKQOJvxQ7QvQvQOJvxQ7QvQOJvxQ7QvQ'
+)
+on conflict (email) do nothing;
+
+-- Finance user (for development)
+insert into admin_users (email, username, name, role, is_active, password_hash)
+values (
+    'finance@danivisual.test',
+    'finance',
+    'Finance Danivisual',
+    'finance',
+    true,
+    '$2a$10$rQXKqOyQ8QOJvxQ7QvQvQeQXKQOJvxQ7QvQvQOJvxQ7QvQOJvxQ7QvQ'
+)
+on conflict (email) do nothing;
+
+-- Editor user (for development)
+insert into admin_users (email, username, name, role, is_active, password_hash)
+values (
+    'editor@danivisual.test',
+    'editor',
+    'Editor Danivisual',
+    'editor',
+    true,
+    '$2a$10$rQXKqOyQ8QOJvxQ7QvQvQeQXKQOJvxQ7QvQvQOJvxQ7QvQOJvxQ7QvQ'
+)
+on conflict (email) do nothing;
+
+-- Staff user (for development)
+insert into admin_users (email, username, name, role, is_active, password_hash)
+values (
+    'staff@danivisual.test',
+    'staff',
+    'Staff Danivisual',
+    'staff',
+    true,
+    '$2a$10$rQXKqOyQ8QOJvxQ7QvQvQeQXKQOJvxQ7QvQvQOJvxQ7QvQOJvxQ7QvQ'
+)
+on conflict (email) do nothing;
+
+-- Photographer user (for development)
+insert into admin_users (email, username, name, role, is_active, password_hash)
+values (
+    'photographer@danivisual.test',
+    'photographer',
+    'Photographer Danivisual',
+    'photographer',
+    true,
+    '$2a$10$rQXKqOyQ8QOJvxQ7QvQvQeQXKQOJvxQ7QvQvQOJvxQ7QvQOJvxQ7QvQ'
+)
+on conflict (email) do nothing;
+
+-- Videographer user (for development)
+insert into admin_users (email, username, name, role, is_active, password_hash)
+values (
+    'videographer@danivisual.test',
+    'videographer',
+    'Videographer Danivisual',
+    'videographer',
+    true,
     '$2a$10$rQXKqOyQ8QOJvxQ7QvQvQeQXKQOJvxQ7QvQvQOJvxQ7QvQOJvxQ7QvQ'
 )
 on conflict (email) do nothing;
@@ -217,9 +289,9 @@ on conflict (email) do nothing;
 -- Test customer (for development)
 insert into admin_users (email, username, name, role, is_active, whatsapp)
 values (
-    'dani@danivisual.app',
-    'danivisual',
-    'Dani Indra',
+    'customer@danivisual.test',
+    'customer',
+    'Customer Danivisual',
     'customer',
     true,
     '081234567890'

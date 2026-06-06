@@ -1,10 +1,32 @@
 import { Link, useNavigate } from "react-router";
 import { FormEvent, useEffect, useState } from "react";
-import { useAuth, isAdminRole } from "../contexts/AuthContext";
+import { useAuth } from "../contexts/AuthContext";
 import BrandLogo from "../components/BrandLogo";
 import { mediaAssets } from "../data/mediaAssets";
 import { useContent } from "../contexts/ContentContext";
 import { isSupabaseConfigured } from "../../lib/supabaseClient";
+import type { UserRole } from "../contexts/AuthContext";
+
+// Role-based redirect helper
+const getRedirectPathByRole = (role: UserRole): string => {
+  switch (role) {
+    case "super_admin":
+    case "admin":
+      return "/admin";
+    case "finance":
+      return "/admin/finance";
+    case "editor":
+    case "photographer":
+    case "videographer":
+      return "/admin/production";
+    case "staff":
+      return "/admin/my-kpi";
+    case "customer":
+      return "/dashboard";
+    default:
+      return "/login";
+  }
+};
 
 export default function LoginPage() {
   const navigate = useNavigate();
@@ -21,10 +43,20 @@ export default function LoginPage() {
 
   useEffect(() => {
     if (isAuthenticated && user) {
-      const redirectPath = isAdminRole(user.role) ? "/admin" : "/dashboard";
+      const redirectPath = getRedirectPathByRole(user.role);
+
+      // Debug logging (DEV only)
+      if (isDev) {
+        console.log("[LOGIN REDIRECT]", {
+          email: user.email,
+          role: user.role,
+          redirectPath,
+        });
+      }
+
       navigate(redirectPath, { replace: true });
     }
-  }, [isAuthenticated, user, navigate]);
+  }, [isAuthenticated, user, navigate, isDev]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();

@@ -6,6 +6,9 @@ import {
   isSuperAdmin as checkSuperAdmin,
 } from "../utils/permissions";
 
+// Debug mode flag
+const DEBUG_AUTH = true;
+
 export {
   canAccessAdminMenuItem,
   canAccessAttendance,
@@ -335,16 +338,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // Initialize auth state
   useEffect(() => {
     const initAuth = async () => {
+      if (DEBUG_AUTH) console.log("[AuthContext] initAuth started");
       setIsLoading(true);
 
       // Check Supabase auth first
       if (isSupabaseConfigured()) {
+        if (DEBUG_AUTH) console.log("[AuthContext] Supabase configured, checking auth");
         const client = getSupabaseClient();
         if (client) {
           try {
             const { data: { user: supabaseUser } } = await client.auth.getUser();
 
             if (supabaseUser) {
+              if (DEBUG_AUTH) console.log("[AuthContext] Found Supabase user:", supabaseUser.email);
               // Fetch user profile from database
               const { data: profile } = await client
                 .from("admin_users")
@@ -353,6 +359,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 .single();
 
               if (profile) {
+                if (DEBUG_AUTH) console.log("[AuthContext] Found profile:", profile.role);
                 // Resolve employeeId for operational staff
                 const employeeResolution = await resolveEmployeeId(
                   client,
@@ -377,8 +384,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 };
                 setUser(authUser);
                 setStoredUser(authUser);
+                if (DEBUG_AUTH) console.log("[AuthContext] User set from Supabase:", authUser.role);
               } else {
                 // User exists in auth but not in admin_users - treat as customer
+                if (DEBUG_AUTH) console.log("[AuthContext] No profile, treating as customer");
                 const customerResolution = await resolveCustomerId(client, supabaseUser.email || "");
                 const authUser: AuthUser = {
                   id: supabaseUser.id,
@@ -391,6 +400,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
                 setUser(authUser);
                 setStoredUser(authUser);
               }
+            } else {
+              if (DEBUG_AUTH) console.log("[AuthContext] No Supabase user found");
             }
           } catch (err) {
             console.warn("[AuthContext] Supabase auth init error:", err);
@@ -398,12 +409,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         }
       } else {
         // Development mode without Supabase - use stored user only
+        if (DEBUG_AUTH) console.log("[AuthContext] Supabase not configured, using localStorage");
         const stored = getStoredUser();
         if (stored) {
+          if (DEBUG_AUTH) console.log("[AuthContext] Found stored user:", stored.role);
           setUser(stored);
+        } else {
+          if (DEBUG_AUTH) console.log("[AuthContext] No stored user");
         }
       }
 
+      if (DEBUG_AUTH) console.log("[AuthContext] initAuth complete");
       setIsLoading(false);
       setIsInitialized(true);
     };
@@ -423,8 +439,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const cleanIdentifier = identifier.trim().toLowerCase();
     const cleanPassword = password.trim();
 
+    if (DEBUG_AUTH) console.log("[AuthContext] Login attempt:", cleanIdentifier);
+
     const loginWithDemoUser = (baseError?: string): { success: boolean; error?: string } => {
       if (!import.meta.env.DEV) {
+        if (DEBUG_AUTH) console.log("[AuthContext] Not in DEV mode, rejecting");
         return {
           success: false,
           error: baseError || "Username/password salah",
@@ -432,7 +451,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       const demo = DEV_DEMO_USERS[cleanIdentifier];
+      if (DEBUG_AUTH) console.log("[AuthContext] Demo user lookup:", cleanIdentifier, demo ? "found" : "not found");
+
       if (demo && demo.password === cleanPassword) {
+        if (DEBUG_AUTH) console.log("[AuthContext] Demo login successful:", demo.user.role);
         setUser(demo.user);
         setStoredUser(demo.user);
         return { success: true };
@@ -450,6 +472,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         );
 
         if (devUser && devUser.temporaryPassword === cleanPassword && devUser.isActive !== false && isKnownRole(devUser.role)) {
+          if (DEBUG_AUTH) console.log("[AuthContext] Dev user login successful:", devUser.role);
           const authUser: AuthUser = {
             id: devUser.userId || devUser.id,
             email: devUser.email,
@@ -469,12 +492,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       if (!isSupabaseConfigured()) {
+        if (DEBUG_AUTH) console.log("[AuthContext] Supabase not configured, demo login failed");
         return {
           success: false,
           error: "Supabase belum dikonfigurasi. Username/password demo salah.",
         };
       }
 
+      if (DEBUG_AUTH) console.log("[AuthContext] Login failed - no match found");
       return {
         success: false,
         error: "Username/password salah",
@@ -571,10 +596,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
           setUser(authUser);
           setStoredUser(authUser);
+          if (DEBUG_AUTH) console.log("[AuthContext] Supabase login successful:", authUser.role);
           setIsLoading(false);
           return { success: true };
         }
 
+        if (DEBUG_AUTH) console.log("[AuthContext] No user data from Supabase");
         setIsLoading(false);
         return { success: false, error: "Login gagal" };
       } catch (err) {

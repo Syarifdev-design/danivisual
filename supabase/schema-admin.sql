@@ -28,9 +28,9 @@ create table if not exists admin_users (
     phone text,
     avatar_url text,
 
-    -- Role
+    -- Role (8 roles - including operational staff)
     role text not null default 'admin'
-        check (role in ('super_admin', 'admin', 'finance', 'editor', 'staff', 'customer')),
+        check (role in ('super_admin', 'admin', 'finance', 'editor', 'staff', 'photographer', 'videographer', 'customer')),
 
     -- Status
     is_active boolean default true,
@@ -362,9 +362,40 @@ create trigger update_content_menus_updated_at
     for each row execute function update_updated_at_column();
 
 -- =============================================================================
--- SEED: Default Admin User
+-- SEED: Default Admin Users (8 roles)
 -- =============================================================================
 
+-- Super Admin
 insert into admin_users (username, name, role, is_active, password_hash) values
-    ('admin', 'Admin Utama', 'super_admin', true, 'admin') -- password: admin
+    ('superadmin', 'Super Admin Utama', 'super_admin', true, 'admin')
+on conflict (username) do nothing;
+
+-- Admin
+insert into admin_users (username, name, role, is_active, password_hash) values
+    ('admin', 'Admin Utama', 'admin', true, 'admin')
+on conflict (username) do nothing;
+
+-- Finance
+insert into admin_users (username, name, role, is_active, password_hash) values
+    ('finance', 'Finance Danivisual', 'finance', true, 'admin')
+on conflict (username) do nothing;
+
+-- Editor
+insert into admin_users (username, name, role, is_active, password_hash) values
+    ('editor', 'Editor Danivisual', 'editor', true, 'admin')
+on conflict (username) do nothing;
+
+-- Staff
+insert into admin_users (username, name, role, is_active, password_hash) values
+    ('staff', 'Staff Danivisual', 'staff', true, 'admin')
+on conflict (username) do nothing;
+
+-- Photographer
+insert into admin_users (username, name, role, is_active, password_hash) values
+    ('photographer', 'Photographer Danivisual', 'photographer', true, 'admin')
+on conflict (username) do nothing;
+
+-- Videographer
+insert into admin_users (username, name, role, is_active, password_hash) values
+    ('videographer', 'Videographer Danivisual', 'videographer', true, 'admin')
 on conflict (username) do nothing;
