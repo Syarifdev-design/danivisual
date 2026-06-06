@@ -45,3 +45,11 @@ zip-extract/
 # Netlify build
 netlify-build/
 danivisual-netlify-upload/
+
+# PHP Backend
+api/logs/
+*.log
+uploads/
+
+# Environment files
+.env.local
