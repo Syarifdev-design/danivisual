@@ -43,8 +43,6 @@ export interface Booking {
   paidAmount: number;
   remainingAmount: number;
   status: BookingStatus;
-  isActive?: boolean;
-  archivedAt?: string | null;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -259,8 +257,6 @@ export const createBooking = async (
         paid_amount: newBooking.paidAmount,
         remaining_amount: newBooking.remainingAmount,
         status: newBooking.status,
-        is_active: newBooking.isActive !== false,
-        archived_at: newBooking.archivedAt || null,
         notes: newBooking.notes,
         created_at: now,
         updated_at: now,
@@ -325,41 +321,21 @@ export const updateBookingStatus = async (
   id: string,
   status: BookingStatus
 ): Promise<boolean> => {
-  if (status === "cancelled") {
-    return archiveBooking(id);
-  }
-
   return updateBooking(id, { status });
 };
 
 /**
- * Archive/cancel booking without deleting historical data.
+ * Hapus booking
  */
-export const archiveBooking = async (id: string): Promise<boolean> => {
-  const timestamp = new Date().toISOString();
-  const updates = {
-    status: "cancelled" as BookingStatus,
-    isActive: false,
-    archivedAt: timestamp,
-    updatedAt: timestamp,
-  };
-
+export const deleteBooking = async (id: string): Promise<boolean> => {
   if (isSupabaseConfigured()) {
     const client = getSupabaseClient();
     if (!client) return false;
 
-    const { error } = await client
-      .from("bookings")
-      .update({
-        status: "cancelled",
-        is_active: false,
-        archived_at: timestamp,
-        updated_at: timestamp,
-      })
-      .eq("id", id);
+    const { error } = await client.from("bookings").delete().eq("id", id);
 
     if (error) {
-      console.error("[AdminService] archiveBooking error:", error);
+      console.error("[AdminService] deleteBooking error:", error);
       return false;
     }
 
@@ -370,15 +346,10 @@ export const archiveBooking = async (id: string): Promise<boolean> => {
   const bookings = getLocalData<Booking[]>(STORAGE_KEYS.bookings, []);
   setLocalData(
     STORAGE_KEYS.bookings,
-    bookings.map((b) => (b.id === id ? { ...b, ...updates } : b))
+    bookings.filter((b) => b.id !== id)
   );
   return true;
 };
-
-/**
- * Deprecated compatibility alias: never hard-delete bookings.
- */
-export const deleteBooking = archiveBooking;
 
 // ============================================================================
 // Customer Operations
@@ -507,27 +478,17 @@ export const updateCustomer = async (
 };
 
 /**
- * Archive customer (legacy name kept for backward compatibility).
- * Customers must not be hard-deleted from the frontend.
+ * Hapus customer
  */
 export const deleteCustomer = async (id: string): Promise<boolean> => {
-  const now = new Date().toISOString();
-
   if (isSupabaseConfigured()) {
     const client = getSupabaseClient();
     if (!client) return false;
 
-    const { error } = await client
-      .from("customers")
-      .update({
-        status: "archived",
-        is_active: false,
-        updated_at: now,
-      })
-      .eq("id", id);
+    const { error } = await client.from("customers").delete().eq("id", id);
 
     if (error) {
-      console.error("[AdminService] archive customer error:", error);
+      console.error("[AdminService] deleteCustomer error:", error);
       return false;
     }
 
@@ -538,18 +499,7 @@ export const deleteCustomer = async (id: string): Promise<boolean> => {
   const customers = getLocalData<Customer[]>(STORAGE_KEYS.customers, []);
   setLocalData(
     STORAGE_KEYS.customers,
-    customers.map((customer) =>
-      customer.id === id
-        ? {
-            ...customer,
-            status: "archived",
-            isActive: false,
-            is_active: false,
-            updatedAt: now,
-            updated_at: now,
-          }
-        : customer
-    )
+    customers.filter((c) => c.id !== id)
   );
   return true;
 };

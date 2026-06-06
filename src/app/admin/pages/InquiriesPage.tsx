@@ -19,7 +19,6 @@ import {
   getInquiries,
   updateInquiryStatus,
   deleteInquiry,
-  convertInquiryToCustomer,
   type Inquiry,
   type InquiryStatus,
 } from "../../../services/inquiryService";
@@ -60,7 +59,6 @@ export default function InquiriesPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedInquiry, setSelectedInquiry] = useState<Inquiry | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [convertingId, setConvertingId] = useState<string | null>(null);
 
   // Load inquiries
   const loadInquiries = useCallback(async () => {
@@ -99,29 +97,6 @@ export default function InquiriesPage() {
   const handleStatusChange = async (id: string, status: InquiryStatus) => {
     await updateInquiryStatus(id, status);
     await loadInquiries();
-  };
-
-  const handleConvertToCustomer = async (inquiry: Inquiry) => {
-    setConvertingId(inquiry.id);
-    const result = await convertInquiryToCustomer(inquiry.id);
-    setConvertingId(null);
-
-    if (!result.success) {
-      alert(result.error || "Gagal convert inquiry menjadi customer.");
-      return;
-    }
-
-    await loadInquiries();
-
-    if (result.duplicate && result.customer) {
-      const openCustomer = confirm(
-        `Customer dengan kontak ini sudah ada: ${result.customer.name}.\n\nBuka halaman Customers?`
-      );
-      if (openCustomer) window.location.href = "/admin/customers";
-      return;
-    }
-
-    alert("Inquiry berhasil dikonversi menjadi customer.");
   };
 
   // Handle delete
@@ -221,17 +196,6 @@ export default function InquiriesPage() {
           >
             <Eye size={13} /> Detail
           </button>
-          {inquiry.status !== "converted" && (
-            <button
-              type="button"
-              onClick={() => handleConvertToCustomer(inquiry)}
-              disabled={convertingId === inquiry.id}
-              className="inline-flex min-h-9 items-center gap-2 border border-emerald-200 bg-white px-3 text-xs text-emerald-700 transition hover:bg-emerald-50 disabled:opacity-60"
-            >
-              <UserCheck size={13} />
-              {convertingId === inquiry.id ? "Converting..." : "Convert to Customer"}
-            </button>
-          )}
           <button
             type="button"
             onClick={() => handleDelete(inquiry.id)}
@@ -448,24 +412,6 @@ export default function InquiriesPage() {
                   ))}
                 </div>
               </div>
-
-              {selectedInquiry.status !== "converted" && (
-                <div className="mt-5 rounded-lg border border-emerald-200 bg-emerald-50 p-4">
-                  <p className="text-sm font-semibold text-emerald-800">Convert to Customer</p>
-                  <p className="mt-1 text-xs leading-relaxed text-emerald-700">
-                    Buat customer lead dari inquiry ini dengan source Inquiry dan status Lead.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => handleConvertToCustomer(selectedInquiry)}
-                    disabled={convertingId === selectedInquiry.id}
-                    className="mt-3 inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-emerald-600 px-4 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:opacity-60"
-                  >
-                    <UserCheck size={16} />
-                    {convertingId === selectedInquiry.id ? "Converting..." : "Convert to Customer"}
-                  </button>
-                </div>
-              )}
             </div>
 
             {/* Modal Footer */}

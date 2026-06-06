@@ -11,12 +11,12 @@ export default function DashboardLayout() {
   }
 
   return (
-    <div className="min-h-screen bg-background-soft">
+    <div className="dashboard-surface min-h-screen">
       <div className="flex flex-col lg:block lg:pl-60">
         <DashboardSidebar />
         <div className="flex-1 flex flex-col">
           <DashboardHeader />
-          <main className="flex-1 px-5 py-6 pb-28 transition-opacity duration-300 lg:p-8 lg:pt-36">
+          <main className="flex-1 px-5 py-6 pb-28 transition-opacity duration-300 lg:p-6 lg:pt-28">
             <Outlet />
           </main>
         </div>

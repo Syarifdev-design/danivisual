@@ -396,8 +396,9 @@ export const getAttendanceByDate = async (
 /**
  * Check-in
  *
- * SECURITY: Admin/super_admin can check in any employee.
- * Staff can only check in for themselves using their AuthContext employeeId.
+ * SECURITY: employeeId must come from authenticated user context.
+ * Never trust employeeId from client-side UI or form input.
+ * The calling code must pass user.employeeId from AuthContext.
  */
 export const checkIn = async (
   data: CheckInData,
@@ -408,13 +409,10 @@ export const checkIn = async (
     userRole?: string;
   }
 ): Promise<{ success: boolean; record?: AttendanceRecord | null; error?: string }> => {
-  // Admin/super_admin bypass: can check in any employee
-  const isAdmin = options?.userRole === "super_admin" || options?.userRole === "admin";
-
-  // SECURITY: Validate employeeId for non-admin users
+  // SECURITY: Validate employeeId
   // If verifiedEmployeeId is provided, enforce it matches data.employeeId
   // This prevents malicious users from spoofing employeeId
-  if (!isAdmin && options?.verifiedEmployeeId && options.verifiedEmployeeId !== data.employeeId) {
+  if (options?.verifiedEmployeeId && options.verifiedEmployeeId !== data.employeeId) {
     console.error("[AttendanceService] Security violation: employeeId mismatch");
     return {
       success: false,
@@ -511,8 +509,7 @@ export const checkIn = async (
 /**
  * Check-out
  *
- * SECURITY: Admin/super_admin can check out any record.
- * Staff can only check out their own records.
+ * SECURITY: Staff can only check out their own records.
  * recordId must be validated to belong to the authenticated user's employeeId.
  */
 export const checkOut = async (
@@ -525,9 +522,6 @@ export const checkOut = async (
     userRole?: string;
   }
 ): Promise<{ success: boolean; record?: AttendanceRecord | null; error?: string }> => {
-  // Admin/super_admin bypass: can check out any record
-  const isAdmin = options?.userRole === "super_admin" || options?.userRole === "admin";
-
   const now = new Date();
   const checkOutTime = now.toISOString();
 
@@ -540,8 +534,7 @@ export const checkOut = async (
   }
 
   // SECURITY: Staff can only check out their own records
-  // Admin bypass: can check out any record
-  if (!isAdmin && options?.verifiedEmployeeId && options.verifiedEmployeeId !== existing.employeeId) {
+  if (options?.verifiedEmployeeId && options.verifiedEmployeeId !== existing.employeeId) {
     console.error("[AttendanceService] Security violation: staff trying to check out another employee's record");
     return {
       success: false,

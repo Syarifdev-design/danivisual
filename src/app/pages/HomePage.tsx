@@ -2,414 +2,296 @@ import { Link } from "react-router";
 import { useEffect, useState } from "react";
 import { ArrowRight } from "lucide-react";
 import { mediaAssets } from "../data/mediaAssets";
-
-type HeroSlide = {
-  id: string;
-  type: "image" | "video";
-  src: string;
-  poster?: string;
-  alt: string;
-};
-
-const heroSlides: HeroSlide[] = [
-  {
-    id: "opening-film",
-    type: "video",
-    src: mediaAssets.hero.openingVideo,
-    poster: mediaAssets.hero.akad,
-    alt: "Video pembuka wedding Danivisual",
-  },
-  {
-    id: "wedding-story",
-    type: "image",
-    src: mediaAssets.hero.akad,
-    alt: "Dokumentasi akad wedding Danivisual",
-  },
-  {
-    id: "outdoor-couple",
-    type: "image",
-    src: mediaAssets.editorial.outdoorCouple,
-    alt: "Potret wedding outdoor Danivisual",
-  },
-  {
-    id: "wedding-moment",
-    type: "image",
-    src: mediaAssets.hero.moment,
-    alt: "Momen wedding Danivisual",
-  },
-];
-
-const featuredStories = [
-  {
-    id: 1,
-    category: "WEDDING",
-    title: "Dani & Sinta",
-    location: "Four Seasons Jakarta",
-    date: "20 Januari 2026",
-    image: mediaAssets.wedding.couplePortrait,
-  },
-  {
-    id: 2,
-    category: "PREWED STUDIO",
-    title: "Rama & Dita",
-    location: "Studio Danivisual",
-    date: "15 Januari 2026",
-    image: mediaAssets.wedding.ringPortrait,
-  },
-  {
-    id: 3,
-    category: "PREWED OUTDOOR",
-    title: "Andi & Maya",
-    location: "Bromo, Jawa Timur",
-    date: "10 Januari 2026",
-    image: mediaAssets.editorial.outdoorCouple,
-  },
-  {
-    id: 4,
-    category: "EVENT",
-    title: "Corporate Gala Night",
-    location: "Grand Hyatt Jakarta",
-    date: "5 Januari 2026",
-    image: mediaAssets.wedding.group,
-  },
-  {
-    id: 5,
-    category: "AKAD CEREMONY",
-    title: "Naufal & Kirana",
-    location: "The Langham Jakarta",
-    date: "28 Desember 2025",
-    image: mediaAssets.hero.akad,
-  },
-  {
-    id: 6,
-    category: "INTIMATE WEDDING",
-    title: "Arga & Meira",
-    location: "Plataran Menteng",
-    date: "18 Desember 2025",
-    image: mediaAssets.wedding.detailPortrait,
-  },
-  {
-    id: 7,
-    category: "FAMILY SESSION",
-    title: "Hendra Family",
-    location: "InterContinental Jakarta",
-    date: "12 Desember 2025",
-    image: mediaAssets.wedding.family,
-  },
-  {
-    id: 8,
-    category: "RECEPTION",
-    title: "Rizky & Anindya",
-    location: "Ayana Midplaza",
-    date: "30 November 2025",
-    image: mediaAssets.wedding.table,
-  },
-  {
-    id: 9,
-    category: "DETAIL STORY",
-    title: "The Ring Moment",
-    location: "Private Residence",
-    date: "22 November 2025",
-    image: mediaAssets.hero.ring,
-  },
-  {
-    id: 10,
-    category: "EDITORIAL WEDDING",
-    title: "Bagas & Livia",
-    location: "Tugu Kunstkring Paleis",
-    date: "9 November 2025",
-    image: mediaAssets.hero.moment,
-  },
-];
-
-const visualServices = [
-  {
-    number: "01",
-    title: "Wedding",
-    description: "Dokumentasi wedding dengan feel editorial, clean, dan timeless.",
-    image: mediaAssets.wedding.couplePortrait,
-    label: "Signature",
-    cta: "Booking Wedding",
-  },
-  {
-    number: "02",
-    title: "Prewedding",
-    description: "Indoor atau outdoor dengan mood yang matang.",
-    image: mediaAssets.editorial.outdoorCouple,
-    label: "Editorial",
-    cta: "Explore",
-  },
-  {
-    number: "03",
-    title: "Event",
-    description: "Celebration, gathering, dan corporate moment.",
-    image: mediaAssets.wedding.group,
-    label: "Coverage",
-    cta: "Explore",
-  },
-  {
-    number: "04",
-    title: "Studio",
-    description: "Portrait, family, dan personal branding.",
-    image: mediaAssets.wedding.ringPortrait,
-    label: "Portrait",
-    cta: "Explore",
-  },
-  {
-    number: "05",
-    title: "Lainnya",
-    description: "Momen personal dan keluarga yang ingin disimpan.",
-    image: mediaAssets.wedding.family,
-    label: "Personal",
-    cta: "Explore",
-  },
-];
-
-const aboutSlides = [
-  {
-    id: "vow-detail",
-    image: mediaAssets.wedding.detailPortrait,
-    alt: "Pasangan wedding Danivisual saat momen cincin",
-  },
-  {
-    id: "couple-stage",
-    image: mediaAssets.wedding.couplePortrait,
-    alt: "Potret pasangan wedding Danivisual di pelaminan",
-  },
-  {
-    id: "akad-close",
-    image: mediaAssets.wedding.ceremony,
-    alt: "Momen akad wedding Danivisual",
-  },
-];
+import { useLanguage } from "../contexts/LanguageContext";
+import { useContent } from "../contexts/ContentContext";
+import { ImageWithFallback } from "../components/figma/ImageWithFallback";
 
 export default function HomePage() {
-  const [activeSlide, setActiveSlide] = useState(0);
-  const [activeAboutSlide, setActiveAboutSlide] = useState(0);
+  const { t } = useLanguage();
+  const { getField, getImage } = useContent();
+  const [slide, setSlide] = useState(0);
 
+  // Get all images from content
+  const slides = [
+    { src: getImage("home_slide_1", mediaAssets.hero.bannerHome[0]), fallback: mediaAssets.hero.bannerHome[0] },
+    { src: getImage("home_slide_2", mediaAssets.hero.bannerHome[1]), fallback: mediaAssets.hero.bannerHome[1] },
+    { src: getImage("home_slide_3", mediaAssets.hero.bannerHome[2]), fallback: mediaAssets.hero.bannerHome[2] },
+    { src: getImage("home_slide_4", mediaAssets.hero.bannerHome[3]), fallback: mediaAssets.hero.bannerHome[3] },
+    { src: getImage("home_slide_5", mediaAssets.hero.bannerHome[4]), fallback: mediaAssets.hero.bannerHome[4] },
+    { src: getImage("home_slide_6", mediaAssets.hero.bannerHome[5]), fallback: mediaAssets.hero.bannerHome[5] },
+    { src: getImage("home_slide_7", mediaAssets.hero.bannerHome[6]), fallback: mediaAssets.hero.bannerHome[6] },
+    { src: getImage("home_slide_8", mediaAssets.hero.bannerHome[7]), fallback: mediaAssets.hero.bannerHome[7] },
+  ].filter(Boolean);
+
+  // Get featured stories from content
+  const stories = [
+    {
+      category: getField("home", "featured_stories", "home_story_1_category"),
+      title: getField("home", "featured_stories", "home_story_1_title"),
+      location: getField("home", "featured_stories", "home_story_1_location"),
+      date: getField("home", "featured_stories", "home_story_1_date"),
+      image: getImage("home_story_1_image", mediaAssets.wedding.couplePortrait),
+      fallback: mediaAssets.wedding.couplePortrait,
+    },
+    {
+      category: getField("home", "featured_stories", "home_story_2_category"),
+      title: getField("home", "featured_stories", "home_story_2_title"),
+      location: getField("home", "featured_stories", "home_story_2_location"),
+      date: getField("home", "featured_stories", "home_story_2_date"),
+      image: getImage("home_story_2_image", mediaAssets.wedding.ringPortrait),
+      fallback: mediaAssets.wedding.ringPortrait,
+    },
+    {
+      category: getField("home", "featured_stories", "home_story_3_category"),
+      title: getField("home", "featured_stories", "home_story_3_title"),
+      location: getField("home", "featured_stories", "home_story_3_location"),
+      date: getField("home", "featured_stories", "home_story_3_date"),
+      image: getImage("home_story_3_image", mediaAssets.editorial.outdoorCouple),
+      fallback: mediaAssets.editorial.outdoorCouple,
+    },
+    {
+      category: getField("home", "featured_stories", "home_story_4_category"),
+      title: getField("home", "featured_stories", "home_story_4_title"),
+      location: getField("home", "featured_stories", "home_story_4_location"),
+      date: getField("home", "featured_stories", "home_story_4_date"),
+      image: getImage("home_story_4_image", mediaAssets.wedding.group),
+      fallback: mediaAssets.wedding.group,
+    },
+    {
+      category: getField("home", "featured_stories", "home_story_5_category"),
+      title: getField("home", "featured_stories", "home_story_5_title"),
+      location: getField("home", "featured_stories", "home_story_5_location"),
+      date: getField("home", "featured_stories", "home_story_5_date"),
+      image: getImage("home_story_5_image", mediaAssets.hero.akad),
+      fallback: mediaAssets.hero.akad,
+    },
+    {
+      category: getField("home", "featured_stories", "home_story_6_category"),
+      title: getField("home", "featured_stories", "home_story_6_title"),
+      location: getField("home", "featured_stories", "home_story_6_location"),
+      date: getField("home", "featured_stories", "home_story_6_date"),
+      image: getImage("home_story_6_image", mediaAssets.wedding.detailPortrait),
+      fallback: mediaAssets.wedding.detailPortrait,
+    },
+  ];
+
+  // Get services from content
+  const services = [
+    {
+      title: getField("home", "services", "home_svc_wedding_title") || "Wedding",
+      desc: getField("home", "services", "home_svc_wedding_desc"),
+      image: getImage("home_svc_wedding_image", mediaAssets.wedding.couplePortrait),
+      fallback: mediaAssets.wedding.couplePortrait,
+      label: getField("home", "services", "home_svc_wedding_label"),
+      cta: getField("home", "services", "home_svc_wedding_cta"),
+    },
+    {
+      title: getField("home", "services", "home_svc_prewedding_title") || "Prewedding",
+      desc: getField("home", "services", "home_svc_prewedding_desc"),
+      image: getImage("home_svc_prewedding_image", mediaAssets.editorial.outdoorCouple),
+      fallback: mediaAssets.editorial.outdoorCouple,
+      label: getField("home", "services", "home_svc_prewedding_label"),
+      cta: getField("home", "services", "home_svc_prewedding_cta"),
+    },
+    {
+      title: getField("home", "services", "home_svc_event_title") || "Event",
+      desc: getField("home", "services", "home_svc_event_desc"),
+      image: getImage("home_svc_event_image", mediaAssets.wedding.group),
+      fallback: mediaAssets.wedding.group,
+      label: getField("home", "services", "home_svc_event_label"),
+      cta: getField("home", "services", "home_svc_event_cta"),
+    },
+    {
+      title: getField("home", "services", "home_svc_studio_title") || "Studio",
+      desc: getField("home", "services", "home_svc_studio_desc"),
+      image: getImage("home_svc_studio_image", mediaAssets.wedding.ringPortrait),
+      fallback: mediaAssets.wedding.ringPortrait,
+      label: getField("home", "services", "home_svc_studio_label"),
+      cta: getField("home", "services", "home_svc_studio_cta"),
+    },
+    {
+      title: getField("home", "services", "home_svc_lainnya_title") || "Lainnya",
+      desc: getField("home", "services", "home_svc_lainnya_desc"),
+      image: getImage("home_svc_lainnya_image", mediaAssets.wedding.family),
+      fallback: mediaAssets.wedding.family,
+      label: getField("home", "services", "home_svc_lainnya_label"),
+      cta: getField("home", "services", "home_svc_lainnya_cta"),
+    },
+  ];
+
+  // Auto slide
   useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveSlide((current) => (current + 1) % heroSlides.length);
+    const interval = window.setInterval(() => {
+      setSlide(s => (s + 1) % slides.length);
     }, 7000);
+    return () => window.clearInterval(interval);
+  }, [slides.length]);
 
-    return () => window.clearInterval(timer);
-  }, []);
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setActiveAboutSlide((current) => (current + 1) % aboutSlides.length);
-    }, 5200);
-
-    return () => window.clearInterval(timer);
-  }, []);
+  const formatDate = (date: string) => {
+    const [day, month, year] = date.split(" ");
+    return { day, monthYear: `${month.slice(0, 3).toUpperCase()} ${year}` };
+  };
 
   return (
     <div className="w-full">
-      {/* Hero Section */}
-      <section className="relative flex h-[100svh] min-h-[620px] items-center justify-center overflow-hidden sm:h-[100dvh] sm:min-h-[640px]">
+      {/* Hero */}
+      <section className="relative h-[100svh] min-h-[620px] flex items-center justify-center overflow-hidden sm:h-[100dvh]">
         <div className="absolute inset-0 bg-black">
-          {heroSlides.map((slide, index) => (
-            <div
-              key={slide.id}
-              className={`absolute inset-0 transition-opacity duration-1000 ${
-                activeSlide === index ? "opacity-100" : "opacity-0"
-              }`}
-              aria-hidden={activeSlide !== index}
-            >
-              {slide.type === "video" ? (
-                <video
-                  className="h-full w-full object-cover object-center"
-                  src={slide.src}
-                  poster={slide.poster}
-                  autoPlay={activeSlide === index}
-                  muted
-                  loop
-                  playsInline
-                  preload="metadata"
-                />
-              ) : (
-                <img
-                  src={slide.src}
-                  alt={slide.alt}
-                  className="h-full w-full object-cover object-center"
-                  loading={index === 0 ? "eager" : "lazy"}
-                />
-              )}
-            </div>
+          {slides.map((src, i) => (
+            <ImageWithFallback
+              key={i}
+              src={src.src}
+              fallbackSrc={src.fallback}
+              alt={`Slide ${i + 1}`}
+              className={`absolute inset-0 h-full w-full object-cover transition-opacity duration-1000 ${i === slide ? "opacity-100" : "opacity-0"}`}
+            />
           ))}
         </div>
         <div className="absolute inset-0 z-10 bg-gradient-to-b from-black/62 via-black/20 to-black/72 sm:from-black/54 sm:via-black/22 sm:to-black/68" />
         <div className="absolute inset-x-0 top-0 z-10 h-40 bg-gradient-to-b from-black/60 to-transparent sm:h-40" />
 
-        <div className="relative z-20 mx-auto flex h-full w-full max-w-5xl items-end justify-center px-6 pb-14 pt-24 text-center text-white sm:items-center sm:px-8 sm:pb-0 sm:pt-20">
-          <div className="w-full max-w-[430px] border border-white/18 bg-black/18 px-5 py-6 shadow-[0_24px_80px_rgba(0,0,0,0.30)] backdrop-blur-[2px] sm:max-w-[560px] sm:px-8 sm:py-8">
-            <div className="mx-auto mb-5 flex items-center justify-center gap-4 sm:mb-6">
-              <span className="h-px w-12 bg-soft-gold" />
-              <span className="text-[10px] font-medium uppercase tracking-[0.32em] text-white/82">Wedding Date</span>
-              <span className="h-px w-12 bg-soft-gold" />
-            </div>
-            <h1 className="mx-auto mb-4 max-w-[360px] text-4xl leading-[1.02] sm:max-w-none sm:text-5xl lg:text-6xl" style={{ fontFamily: "var(--font-heading)", fontWeight: 400 }}>
-              Reserve Your Story
-            </h1>
-            <p className="mx-auto mb-7 max-w-[310px] text-sm leading-relaxed text-white/84 sm:max-w-[440px] sm:text-base">
-              Amankan tanggal wedding Anda dengan booking cepat, clean, dan tanpa proses yang ribet.
-            </p>
-            <Link
-              to="/packages"
-              className="group mx-auto flex min-h-[60px] w-full items-center justify-between rounded-full border border-soft-gold/70 bg-black px-5 py-3 text-sm font-semibold uppercase tracking-[0.22em] text-white shadow-[0_18px_45px_rgba(0,0,0,0.36)] transition-all hover:-translate-y-0.5 hover:border-white/80 hover:bg-white hover:text-black sm:max-w-[390px]"
-            >
-              <span className="pl-2">BOOKING NOW</span>
-              <span className="flex h-10 w-10 items-center justify-center rounded-full bg-white text-black transition-all group-hover:bg-black group-hover:text-white">
-                <ArrowRight size={17} />
-              </span>
-            </Link>
-            <p className="mt-4 text-[11px] uppercase tracking-[0.22em] text-white/62">Wedding Basic starts from 1,9 jt</p>
-          </div>
+        {/* Nav Arrows */}
+        <button onClick={() => setSlide(s => (s - 1 + slides.length) % slides.length)}
+          className="absolute left-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/95 text-white sm:flex hover:bg-white/15">
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M14.9 6.8C12.6 8 11.4 9.6 11.4 11.9C11.4 14.2 12.6 15.8 14.9 17M11.6 12C10.8 11.1 9.9 10.8 8.8 10.9" /></svg>
+        </button>
+        <button onClick={() => setSlide(s => (s + 1) % slides.length)}
+          className="absolute right-5 top-1/2 z-20 hidden h-12 w-12 -translate-y-1/2 items-center justify-center rounded-full border border-white/95 text-white sm:flex hover:bg-white/15">
+          <svg viewBox="0 0 24 24" className="h-6 w-6" fill="none" stroke="currentColor" strokeWidth="1.8"><path d="M9.1 6.8C11.4 8 12.6 9.6 12.6 11.9C12.6 14.2 11.4 15.8 9.1 17M12.4 12C13.2 11.1 14.1 10.8 15.2 10.9" /></svg>
+        </button>
+
+        {/* Caption */}
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 text-white sm:bottom-16">
+          <p className="text-[12px] uppercase tracking-[0.35em] text-white/90 sm:text-[13px]">
+            {getField("home", "hero", "home_hero_kicker") || "SIDE BY SIDE"}
+          </p>
+          <p className="mt-2 text-[11px] uppercase tracking-[0.26em] text-white/82 sm:text-[12px]">
+            {getField("home", "hero", "home_hero_title") || "DANIVISUAL WEDDING & PREWEDDING STORY"}
+          </p>
         </div>
 
+        {/* Dots */}
+        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 z-20 flex gap-4">
+          {slides.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setSlide(i)}
+              className="h-4 w-4 rounded-full border transition-all"
+              style={{ backgroundColor: i === slide ? '#ffffff' : 'transparent' }}
+            />
+          ))}
+        </div>
       </section>
 
       {/* Featured Stories */}
       <section className="bg-background px-5 py-14 lg:px-8 lg:py-24">
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto mb-10 max-w-2xl text-center lg:mb-14">
-            <p className="mb-3 text-xs uppercase tracking-[0.28em] text-premium-beige">Selected works</p>
-            <h2
-              className="mb-4 text-3xl lg:text-4xl"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              Featured Stories
+            <p className="mb-3 text-xs uppercase tracking-[0.28em] text-premium-beige">
+              {getField("home", "featured_stories", "home_featured_eyebrow") || "Featured Stories"}
+            </p>
+            <h2 className="mb-4 text-3xl lg:text-4xl" style={{ fontFamily: "var(--font-heading)" }}>
+              {getField("home", "featured_stories", "home_featured_title") || "Cerita Terpilih"}
             </h2>
             <p className="mx-auto max-w-xl text-sm leading-relaxed text-foreground-secondary">
-              Kurasi singkat dari cerita wedding dan editorial yang dibuat dengan rasa tenang, detail, dan timeless.
+              {getField("home", "featured_stories", "home_featured_desc") || "Kurasi cerita wedding dan editorial"}
             </p>
           </div>
 
-          <div className="story-marquee -mx-5 overflow-hidden px-5 lg:-mx-8 lg:px-8">
-            <div className="story-marquee-track flex w-max gap-4">
-              {[...featuredStories, ...featuredStories].map((story, index) => (
-              <Link
-                key={`${story.id}-${index}`}
-                to={`/portfolio/${story.id}`}
-                className="group relative w-[78vw] max-w-[310px] shrink-0 overflow-hidden border border-border-line bg-white transition-all hover:border-premium-beige sm:w-[320px] lg:w-[292px]"
-                aria-hidden={index >= featuredStories.length}
-                tabIndex={index >= featuredStories.length ? -1 : 0}
-              >
-                <div className="aspect-[5/6] overflow-hidden bg-background-soft">
-                  <img
-                    src={story.image}
-                    alt={story.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
-                  />
-                </div>
-                <div className="p-4 md:p-5">
-                  <span className="text-[10px] tracking-[0.22em] text-premium-beige uppercase">
-                    {story.category}
-                  </span>
-                  <h3
-                    className="mt-2 mb-1 text-xl"
-                    style={{ fontFamily: "var(--font-heading)" }}
-                  >
-                    {story.title}
-                  </h3>
-                  <p className="mb-1 text-xs text-foreground-secondary">{story.location}</p>
-                  <p className="text-xs text-foreground-secondary">{story.date}</p>
-                  <div className="mt-4 flex items-center text-xs uppercase tracking-[0.16em] text-foreground transition group-hover:text-premium-beige">
-                    View Story <ArrowRight size={14} className="ml-2" />
+          <div className="mx-auto grid max-w-[1180px] gap-20 lg:gap-24">
+            {stories.map((story, i) => {
+              const parts = formatDate(story.date);
+              return (
+                <Link key={i} to="/portfolio" className="group block">
+                  <div className="grid aspect-[16/10] overflow-hidden bg-background-soft">
+                    {[story.image].map((img, j) => (
+                      <ImageWithFallback key={j} src={img} fallbackSrc={story.fallback} alt={story.title} loading={i === 0 ? "eager" : "lazy"}
+                        className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.025]" />
+                    ))}
                   </div>
-                </div>
-              </Link>
-              ))}
-            </div>
+                  <div className="mt-8 grid gap-6 md:grid-cols-[120px_1fr] md:gap-12 lg:mt-10">
+                    <div className="flex items-start gap-5 text-foreground-secondary md:block">
+                      <span className="mt-3 hidden h-px w-8 bg-border-line md:inline-block" />
+                      <div>
+                        <p className="mt-3 text-3xl leading-none text-foreground md:mt-2" style={{ fontFamily: "var(--font-heading)" }}>{parts.day}</p>
+                        <p className="mt-2 text-[11px] uppercase tracking-[0.08em]">{parts.monthYear}</p>
+                      </div>
+                    </div>
+                    <div className="max-w-3xl">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-premium-beige">
+                        {story.category}
+                      </p>
+                      <h3 className="mt-2 text-2xl uppercase tracking-[0.08em] lg:text-3xl" style={{ fontFamily: "var(--font-body)" }}>
+                        {story.title}
+                      </h3>
+                      <p className="mt-1 text-[12px] uppercase tracking-[0.22em] text-foreground-secondary/70">{story.location}</p>
+                      <p className="mt-2 max-w-xl text-sm leading-5 text-foreground-secondary">
+                        {t({ ID: "Masuk ke galeri lengkap untuk melihat alur cerita", EN: "View Story" })}
+                      </p>
+                      <div className="mt-3 inline-flex items-center gap-2 text-xs uppercase tracking-[0.18em] text-foreground transition group-hover:text-premium-beige">
+                        {t({ ID: "Lihat Cerita", EN: "View Story" })} <ArrowRight size={14} />
+                      </div>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* Service Categories */}
+      {/* Services */}
       <section className="bg-background-soft px-5 py-12 lg:px-8 lg:py-20">
         <div className="mx-auto max-w-6xl">
           <div className="mb-8 grid gap-5 border-b border-border-line pb-6 lg:grid-cols-[0.85fr_1.15fr] lg:items-end">
             <div>
-              <p className="mb-3 text-xs uppercase tracking-[0.28em] text-premium-beige">Services</p>
-            <h2
-              className="text-3xl lg:text-4xl"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              Our Visual Experiences
-            </h2>
+              <p className="mb-3 text-xs uppercase tracking-[0.28em] text-premium-beige">
+                {getField("home", "services", "home_services_eyebrow") || "Services"}
+              </p>
+              <h2 className="text-3xl lg:text-4xl" style={{ fontFamily: "var(--font-heading)" }}>
+                {getField("home", "services", "home_services_title") || "Our Visual Experiences"}
+              </h2>
             </div>
             <p className="max-w-xl text-sm leading-relaxed text-foreground-secondary lg:justify-self-end">
-              Pilihan layanan dibuat ringkas, fokus, dan mudah diarahkan ke booking tanpa membaca terlalu banyak di awal.
+              {getField("home", "services", "home_services_desc") || "Pilihan layanan"}
             </p>
           </div>
 
+          {/* Services Grid */}
           <div className="grid gap-4 lg:grid-cols-[1.08fr_0.92fr]">
-            <Link
-              to="/packages"
-              className="group grid overflow-hidden border border-border-line bg-white transition-all hover:border-premium-beige md:grid-cols-[0.95fr_1.05fr]"
-            >
-              <div className="relative min-h-[300px] overflow-hidden bg-background md:min-h-[360px]">
-                <img
-                  src={visualServices[0].image}
-                  alt={visualServices[0].title}
-                  loading="lazy"
-                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                />
+            {/* First service (large */}
+            <Link to="/packages" className="group grid overflow-hidden border border-border-line bg-white hover:border-premium-beige">
+              <div className="relative min-h-[300px] overflow-hidden md:min-h-[360px]">
+                <ImageWithFallback src={services[0].image} fallbackSrc={services[0].fallback} alt={services[0].title}
+                  loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/18 to-transparent" />
                 <div className="absolute bottom-5 left-5 right-5 text-white">
-                  <span className="mb-3 block text-[10px] uppercase tracking-[0.26em] text-white/70">{visualServices[0].label} Service</span>
+                  <span className="mb-3 block text-[10px] uppercase tracking-[0.26em] text-white/70">{services[0].label} Service</span>
                   <p className="max-w-xs text-sm leading-relaxed text-white/90">
-                    Fokus utama Danivisual untuk momen akad dan resepsi dengan visual yang rapi, hangat, dan editorial.
+                    {services[0].desc}
                   </p>
-                </div>
-              </div>
-              <div className="flex flex-col justify-between p-6 lg:p-8">
-                <div>
-                  <div className="mb-8 flex items-center gap-4">
-                    <span className="text-[10px] uppercase tracking-[0.24em] text-premium-beige">{visualServices[0].number}</span>
-                    <div className="h-px flex-1 bg-border-line" />
-                  </div>
-                  <h3 className="mb-4 text-4xl lg:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>
-                    {visualServices[0].title}
-                  </h3>
-                  <p className="max-w-sm text-sm leading-relaxed text-foreground-secondary">
-                    {visualServices[0].description}
-                  </p>
-                </div>
-                <div className="mt-8 inline-flex w-fit items-center gap-3 border-b border-premium-beige pb-2 text-xs uppercase tracking-[0.2em] text-foreground transition group-hover:text-premium-beige">
-                  {visualServices[0].cta}
-                  <ArrowRight size={14} />
                 </div>
               </div>
             </Link>
 
+            {/* Other services */}
             <div className="grid gap-3 sm:grid-cols-2">
-              {visualServices.slice(1).map((service) => (
-                <Link
-                  key={service.number}
-                  to="/packages"
-                  className="group grid grid-cols-[116px_1fr] overflow-hidden border border-border-line bg-white transition-all hover:border-premium-beige sm:grid-cols-1"
-                >
-                  <div className="h-full min-h-[132px] overflow-hidden bg-background sm:h-32 sm:min-h-0">
-                    <img
-                      src={service.image}
-                      alt={service.title}
-                      loading="lazy"
-                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
-                    />
+              {services.slice(1).map((svc) => (
+                <Link key={svc.title} to="/packages" className="group grid overflow-hidden border border-border-line bg-white hover:border-premium-beige">
+                  <div className="h-32 overflow-hidden bg-gray-50">
+                    <ImageWithFallback src={svc.image} fallbackSrc={svc.fallback} alt={svc.title} loading="lazy"
+                      className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
                   </div>
-                  <div className="flex min-h-[132px] flex-col justify-between p-4">
+                  <div className="flex h-32 flex-col justify-between p-4">
                     <div>
-                      <div className="mb-3 flex items-center gap-3">
-                        <span className="text-[10px] uppercase tracking-[0.22em] text-premium-beige">{service.number}</span>
-                        <span className="text-[10px] uppercase tracking-[0.2em] text-foreground-secondary">{service.label}</span>
+                      <div className="mb-3 flex items-center gap-3 text-[10px] text-foreground-secondary">
+                        <span className="text-premium-beige">{svc.label}</span>
                       </div>
-                      <h3 className="mb-2 text-xl" style={{ fontFamily: "var(--font-heading)" }}>{service.title}</h3>
-                      <p className="text-xs leading-relaxed text-foreground-secondary">{service.description}</p>
+                      <h3 className="text-xl" style={{ fontFamily: "var(--font-heading)" }}>{svc.title}</h3>
+                      <p className="text-xs leading-relaxed text-foreground-secondary">{svc.desc}</p>
                     </div>
-                    <div className="mt-4 flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-foreground transition group-hover:text-premium-beige">
-                      {service.cta}
-                      <ArrowRight size={13} />
+                    <div className="flex items-center gap-2 text-[11px] uppercase tracking-[0.18em] text-foreground transition group-hover:text-premium-beige">
+                      {svc.cta} <ArrowRight size={13} />
                     </div>
                   </div>
                 </Link>
@@ -419,197 +301,40 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* About Preview */}
-      <section className="bg-background px-5 py-14 lg:px-8 lg:py-24">
-        <div className="mx-auto max-w-6xl">
-          <div className="grid overflow-hidden border border-border-line bg-white lg:grid-cols-[0.95fr_0.82fr]">
-            <div className="flex items-center px-6 py-10 md:px-10 lg:px-14">
-              <div className="max-w-xl">
-                <div className="mb-6 flex items-center gap-4">
-                  <span className="h-px w-12 bg-premium-beige" />
-                  <span className="text-[10px] uppercase tracking-[0.28em] text-premium-beige">About Danivisual</span>
-                </div>
-                <h2
-                  className="mb-5 text-3xl leading-tight lg:text-4xl"
-                  style={{ fontFamily: "var(--font-heading)" }}
-                >
-                  Every Frame Has a Feeling
-                </h2>
-                <p className="mb-4 text-sm leading-relaxed text-foreground-secondary">
-                  Danivisual adalah studio visual yang berfokus pada cerita, rasa, dan detail. Dari
-                  janji pernikahan, prewedding, hingga event penting, setiap frame dibuat untuk
-                  menjadi kenangan yang bertahan lama.
-                </p>
-                <p className="mb-7 text-sm leading-relaxed text-foreground-secondary">
-                  Kami percaya bahwa fotografi bukan hanya tentang mengabadikan momen, tetapi tentang
-                  merasakan kembali emosi yang terjadi di dalamnya.
-                </p>
-                <div className="mb-7 grid max-w-md grid-cols-3 border-y border-border-line py-4 text-center">
-                  <div>
-                    <p className="text-xl" style={{ fontFamily: "var(--font-heading)" }}>Editorial</p>
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-foreground-secondary">Style</p>
-                  </div>
-                  <div className="border-x border-border-line">
-                    <p className="text-xl" style={{ fontFamily: "var(--font-heading)" }}>Wedding</p>
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-foreground-secondary">Focus</p>
-                  </div>
-                  <div>
-                    <p className="text-xl" style={{ fontFamily: "var(--font-heading)" }}>Timeless</p>
-                    <p className="mt-1 text-[10px] uppercase tracking-[0.16em] text-foreground-secondary">Mood</p>
-                  </div>
-                </div>
-                <Link
-                  to="/about"
-                  className="group inline-flex min-h-12 items-center gap-3 border border-dark-premium bg-dark-premium px-6 text-xs uppercase tracking-[0.18em] text-white transition-all hover:bg-white hover:text-dark-premium"
-                >
-                  Meet Danivisual
-                  <ArrowRight size={14} className="transition-transform group-hover:translate-x-1" />
-                </Link>
-              </div>
-            </div>
-            <div className="relative min-h-[360px] overflow-hidden bg-background-soft lg:min-h-[520px]">
-              {aboutSlides.map((slide, index) => (
-                <img
-                  key={slide.id}
-                  src={slide.image}
-                  alt={slide.alt}
-                  loading={index === 0 ? "eager" : "lazy"}
-                  className={`absolute inset-0 h-full w-full object-cover transition-[opacity,transform,filter] duration-[1400ms] ease-[cubic-bezier(.22,1,.36,1)] ${
-                    activeAboutSlide === index
-                      ? "scale-100 opacity-100 blur-0"
-                      : "scale-[1.045] opacity-0 blur-[1px]"
-                  }`}
-                />
-              ))}
-              <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(0,0,0,0.04)_0%,rgba(0,0,0,0.08)_44%,rgba(0,0,0,0.34)_100%)]" />
-              <div className="absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-white/10 to-transparent" />
-              <div className="absolute bottom-5 left-5 border border-white/35 bg-black/20 px-4 py-3 text-white backdrop-blur-sm">
-                <p className="text-[10px] uppercase tracking-[0.24em] text-white/70">Crafted for</p>
-                <p className="mt-1 text-sm">Wedding Stories</p>
-              </div>
-              <div className="absolute bottom-6 right-5 flex items-center gap-2" aria-label="About photo slider">
-                {aboutSlides.map((slide, index) => (
-                  <button
-                    key={slide.id}
-                    type="button"
-                    aria-label={`Show ${slide.alt}`}
-                    onClick={() => setActiveAboutSlide(index)}
-                    className={`h-1.5 rounded-full transition-all duration-500 ${
-                      activeAboutSlide === index ? "w-9 bg-white" : "w-3 bg-white/45 hover:bg-white/75"
-                    }`}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* How It Works */}
-      <section className="bg-background-soft px-5 py-16 lg:px-8 lg:py-28">
-        <div className="mx-auto max-w-6xl">
-          <div className="mx-auto mb-14 max-w-2xl text-center">
-            <div className="mb-5 flex items-center justify-center gap-4">
-              <span className="h-px w-10 bg-premium-beige" />
-              <span className="text-[10px] uppercase tracking-[0.32em] text-premium-beige">Booking Flow</span>
-              <span className="h-px w-10 bg-premium-beige" />
-            </div>
-            <h2
-              className="mb-4 text-4xl leading-tight lg:text-5xl"
-              style={{ fontFamily: "var(--font-heading)" }}
-            >
-              How It Works
-            </h2>
-            <p className="mx-auto max-w-xl text-sm leading-relaxed text-foreground-secondary">
-              Empat tahap sederhana untuk mengunci tanggal dan memastikan setiap detail dokumentasi tertata rapi.
-            </p>
-          </div>
-
-          <div className="relative grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <div className="pointer-events-none absolute left-[12.5%] right-[12.5%] top-[42px] hidden h-px bg-gradient-to-r from-transparent via-premium-beige/55 to-transparent lg:block" />
-            {[
-              { step: "01", title: "Pilih Paket", description: "Pilih kategori, paket, dan jenis layanan." },
-              { step: "02", title: "Checkout & DP", description: "Isi data acara dan upload bukti DP." },
-              { step: "03", title: "Akun Otomatis", description: "Akun customer dibuat setelah DP diverifikasi." },
-              { step: "04", title: "Pantau Progress", description: "Lihat My Booking dan Progress di portal client." },
-            ].map((item, index) => (
-              <div
-                key={item.step}
-                className="group relative overflow-hidden border border-border-line bg-white px-6 py-7 shadow-[0_18px_55px_rgba(24,20,16,0.04)] transition-all duration-500 hover:-translate-y-1 hover:border-premium-beige/70 hover:shadow-[0_24px_70px_rgba(24,20,16,0.08)]"
-              >
-                <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-premium-beige/70 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
-                <div className="mb-7 flex items-center justify-between">
-                  <span
-                    className="text-5xl leading-none text-premium-beige/18 transition-colors duration-500 group-hover:text-premium-beige/32"
-                    style={{ fontFamily: "var(--font-heading)" }}
-                  >
-                    {item.step}
-                  </span>
-                  <span className="flex h-9 w-9 items-center justify-center border border-premium-beige/35 bg-background-soft text-[10px] uppercase tracking-[0.12em] text-premium-beige">
-                    {String(index + 1).padStart(2, "0")}
-                  </span>
-                </div>
-                <h3 className="mb-3 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
-                  {item.title}
-                </h3>
-                <p className="min-h-[3rem] text-sm leading-relaxed text-foreground-secondary">{item.description}</p>
-                <div className="mt-7 h-px w-12 bg-premium-beige/45 transition-all duration-500 group-hover:w-20 group-hover:bg-premium-beige" />
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* Booking CTA */}
+      {/* CTA */}
       <section className="relative overflow-hidden bg-black px-6 py-20 text-white lg:px-8 lg:py-32">
-        <video
-          className="absolute inset-0 h-full w-full object-cover opacity-[0.78] saturate-[1.08] contrast-[1.14]"
-          src={mediaAssets.ui.ctaBackgroundVideo}
-          autoPlay
-          muted
-          loop
-          playsInline
-          aria-hidden="true"
-        />
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(0,0,0,0.90)_0%,rgba(0,0,0,0.56)_36%,rgba(0,0,0,0.50)_64%,rgba(0,0,0,0.90)_100%)]" />
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(216,199,163,0.16)_0%,rgba(0,0,0,0.12)_32%,rgba(0,0,0,0.76)_76%)]" />
-        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-soft-gold/55 to-transparent" />
-        <div className="absolute inset-x-0 bottom-0 h-px bg-gradient-to-r from-transparent via-soft-gold/45 to-transparent" />
+        {getImage("home_cta_image") ? (
+          <ImageWithFallback src={getImage("home_cta_image")} fallbackSrc={mediaAssets.ui.ctaBackground} alt="" className="absolute inset-0 h-full w-full object-cover opacity-[0.78]" />
+        ) : (
+          <video autoPlay muted loop playsInline aria-hidden="true" className="absolute inset-0 h-full w-full object-cover opacity-[0.78]" src={getImage("home_cta_video", mediaAssets.ui.ctaBackgroundVideo)} />
+        )}
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,rgba(216,199,163,0.16) 0%,rgba(0,0,0,0.12) 32%,rgba(0,0,0,0.76) 76%)]" />
+        <div className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-soft-gold/55" />
         <div className="relative z-10 mx-auto max-w-4xl text-center">
-          <div className="mx-auto mb-6 flex items-center justify-center gap-4">
-            <span className="h-px w-12 bg-soft-gold/80" />
-            <span className="text-[10px] uppercase tracking-[0.32em] text-soft-gold">Start Your Story</span>
-            <span className="h-px w-12 bg-soft-gold/80" />
-          </div>
-          <h2
-            className="mb-6 text-4xl leading-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)] lg:text-5xl"
-            style={{ fontFamily: "var(--font-heading)" }}
-          >
-            Let's Create Your Visual Story
+          <p className="mx-auto mb-6 flex items-center gap-4">
+            <span className="h-px flex-1 bg-soft-gold/80" />
+            <span className="text-[10px] tracking-[0.32em] text-soft-gold">
+              {getField("home", "cta", "home_cta_eyebrow") || "Mulai Cerita Anda"}
+            </span>
+            <span className="h-px flex-1 bg-soft-gold/80" />
+          </p>
+          <h2 className="mb-6 text-4xl leading-tight drop-shadow-[0_10px_30px_rgba(0,0,0,0.45)] lg:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>
+            {getField("home", "cta", "home_cta_title") || "Mari Ciptakan Visual Story Anda"}
           </h2>
           <p className="mx-auto mb-10 max-w-2xl text-base leading-8 text-white/88 sm:text-lg">
-            Ceritakan rencana wedding, prewedding, atau event Anda. Tim Danivisual siap membantu
-            mengabadikannya dengan indah.
+            {getField("home", "cta", "home_cta_desc") || "Ceritakan rencana wedding Anda"}
           </p>
           <div className="flex flex-col justify-center gap-4 sm:flex-row">
-            <Link
-              to="/packages"
-              className="border border-white bg-white px-8 py-4 text-sm font-medium tracking-wide text-foreground shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:bg-soft-gold hover:text-black"
-            >
-              View Packages
+            <Link to="/packages" className="rounded-full border border-white bg-white px-8 py-4 text-sm font-medium tracking-wide text-foreground shadow-[0_18px_45px_rgba(0,0,0,0.28)] transition-all hover:-translate-y-0.5 hover:bg-soft-gold hover:text-black">
+              {getField("home", "cta", "home_cta_btn_primary") || "Lihat Paket"}
             </Link>
-            <a
-              href="https://wa.me/6282337279636"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="border border-white/70 bg-black/18 px-8 py-4 text-sm font-medium tracking-wide text-white backdrop-blur-[2px] transition-all hover:-translate-y-0.5 hover:border-soft-gold hover:bg-white/12"
-            >
+            <a href="https://wa.me/6282337279636" target="_blank" rel="noopener noreferrer"
+              className="rounded-full border border-white/70 bg-black/18 px-8 py-4 text-sm font-medium tracking-wide text-white backdrop-blur-[2px] transition-all hover:-translate-y-0.5 hover:border-soft-gold hover:bg-white/12">
               Chat via WhatsApp
             </a>
           </div>
         </div>
       </section>
-
     </div>
   );
 }

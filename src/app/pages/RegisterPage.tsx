@@ -1,14 +1,17 @@
 import { Link } from "react-router";
 import { MessageCircle } from "lucide-react";
 import { mediaAssets } from "../data/mediaAssets";
+import { useContent } from "../contexts/ContentContext";
 
 export default function RegisterPage() {
+  const { getImage } = useContent();
+
   return (
     <div className="min-h-screen grid grid-cols-1 lg:grid-cols-2">
       {/* Left - Image */}
       <div className="hidden lg:block relative overflow-hidden">
         <img
-          src={mediaAssets.wedding.couplePortrait}
+          src={getImage("register_background_image", mediaAssets.wedding.couplePortrait)}
           alt="Prewedding"
           className="absolute inset-0 w-full h-full object-cover"
         />

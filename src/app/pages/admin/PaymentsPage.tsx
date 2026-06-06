@@ -39,9 +39,6 @@ import {
   type PaymentType,
 } from "../../../services/paymentAccountService";
 import { bankOptions, paymentTypeOptions } from "../../data/paymentAccounts";
-import { useAuth } from "../../contexts/AuthContext";
-import { canVerifyPayment, canRejectPayment } from "../../utils/permissions";
-import { findBookingForPayment } from "../../../services/paymentService";
 
 function formatCurrency(amount: number): string {
   return new Intl.NumberFormat("id-ID", {
@@ -110,7 +107,6 @@ type TabType = "payments" | "accounts";
 
 export default function PaymentsPage() {
   const { payments, bookings, updatePaymentStatus } = useAdmin();
-  const { user } = useAuth();
   const [activeTab, setActiveTab] = useState<TabType>("payments");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<FilterType>("all");
@@ -119,15 +115,6 @@ export default function PaymentsPage() {
   const [rejectReason, setRejectReason] = useState("");
   const [isApproving, setIsApproving] = useState(false);
   const [showRejectModal, setShowRejectModal] = useState(false);
-
-  // Get current user role
-  const userRole = user?.role || "customer";
-  const isFinance = userRole === "finance";
-
-  // Permission checks for payment actions
-  const canVerify = canVerifyPayment(userRole);
-  const canReject = canRejectPayment(userRole);
-  const canManagePaymentActions = canVerify || canReject;
 
   // Payment Accounts state
   const [paymentAccounts, setPaymentAccounts] = useState<PaymentAccount[]>([]);
@@ -161,7 +148,7 @@ export default function PaymentsPage() {
 
   // Get booking for a payment
   const getBookingForPayment = (payment: Payment): Booking | undefined => {
-    return findBookingForPayment(payment, bookings);
+    return bookings.find((b) => b.id === payment.bookingId || b.orderNumber === payment.bookingOrderNumber);
   };
 
   // Handlers for payment accounts
@@ -250,7 +237,7 @@ export default function PaymentsPage() {
     return payments.filter((payment) => {
       const matchesSearch =
         payment.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        (payment.bookingOrderNumber || "").toLowerCase().includes(searchQuery.toLowerCase());
+        payment.bookingOrderNumber.toLowerCase().includes(searchQuery.toLowerCase());
 
       let matchesFilter = true;
       if (statusFilter === "dp") {
@@ -437,7 +424,7 @@ export default function PaymentsPage() {
             <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-secondary" />
             <input
               type="text"
-              placeholder="Cari nama customer atau order number..."
+              placeholder="Cari nama, order number, atau telepon..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className={`${inputClassName} pl-10`}
@@ -559,33 +546,29 @@ export default function PaymentsPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
-                        {payment.status === "pending" && canManagePaymentActions && (
+                        {payment.status === "pending" && (
                           <>
-                            {canVerify && (
-                              <button
-                                onClick={() => {
-                                  setSelectedPayment(payment);
-                                  setVerifyNotes("");
-                                  setRejectReason("");
-                                }}
-                                className="rounded-lg bg-emerald-50 p-2 text-emerald-600 hover:bg-emerald-100"
-                                title="Verifikasi"
-                              >
-                                <Check size={16} />
-                              </button>
-                            )}
-                            {canReject && (
-                              <button
-                                onClick={() => {
-                                  setSelectedPayment(payment);
-                                  setShowRejectModal(true);
-                                }}
-                                className="rounded-lg bg-red-50 p-2 text-red-500 hover:bg-red-100"
-                                title="Tolak"
-                              >
-                                <X size={16} />
-                              </button>
-                            )}
+                            <button
+                              onClick={() => {
+                                setSelectedPayment(payment);
+                                setVerifyNotes("");
+                                setRejectReason("");
+                              }}
+                              className="rounded-lg bg-emerald-50 p-2 text-emerald-600 hover:bg-emerald-100"
+                              title="Verifikasi"
+                            >
+                              <Check size={16} />
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedPayment(payment);
+                                setShowRejectModal(true);
+                              }}
+                              className="rounded-lg bg-red-50 p-2 text-red-500 hover:bg-red-100"
+                              title="Tolak"
+                            >
+                              <X size={16} />
+                            </button>
                           </>
                         )}
                         <button
@@ -690,9 +673,7 @@ export default function PaymentsPage() {
                         <MapPin size={14} className="text-premium-beige" />
                         <div>
                           <p className="text-[10px] uppercase tracking-[0.1em] text-foreground-secondary">Lokasi</p>
-                          <p className="text-sm font-medium">
-                            {isFinance ? "Disembunyikan untuk Finance" : booking.eventLocation}
-                          </p>
+                          <p className="text-sm font-medium">{booking.eventLocation}</p>
                         </div>
                       </div>
                     </div>
@@ -754,7 +735,7 @@ export default function PaymentsPage() {
               </div>
 
               {/* Action Buttons for Pending Payments */}
-              {selectedPayment.status === "pending" && canManagePaymentActions && (
+              {selectedPayment.status === "pending" && (
                 <div className="border-t border-border-line pt-6">
                   <h4 className="mb-4 text-sm font-semibold uppercase tracking-[0.12em] text-foreground-secondary">
                     Aksi Verifikasi
@@ -770,25 +751,21 @@ export default function PaymentsPage() {
                     />
                   </div>
                   <div className="flex gap-3">
-                    {canVerify && (
-                      <button
-                        onClick={handleApprove}
-                        disabled={isApproving}
-                        className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50"
-                      >
-                        <Check size={18} />
-                        {isApproving ? "Memproses..." : "Terima Pembayaran"}
-                      </button>
-                    )}
-                    {canReject && (
-                      <button
-                        onClick={openRejectModal}
-                        className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-6 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
-                      >
-                        <X size={18} />
-                        Tolak
-                      </button>
-                    )}
+                    <button
+                      onClick={handleApprove}
+                      disabled={isApproving}
+                      className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600 disabled:opacity-50"
+                    >
+                      <Check size={18} />
+                      {isApproving ? "Memproses..." : "Terima Pembayaran"}
+                    </button>
+                    <button
+                      onClick={openRejectModal}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg border border-red-200 bg-red-50 px-6 py-3 text-sm font-semibold text-red-600 transition hover:bg-red-100"
+                    >
+                      <X size={18} />
+                      Tolak
+                    </button>
                   </div>
                 </div>
               )}

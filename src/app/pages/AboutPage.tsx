@@ -1,124 +1,200 @@
 import { Heart, Eye, Users, Camera, Sparkles, CheckCircle, Quote } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router";
 import PageIntro from "../components/PageIntro";
 import { mediaAssets } from "../data/mediaAssets";
+import { useLanguage } from "../contexts/LanguageContext";
+import { useContent } from "../contexts/ContentContext";
 
 export default function AboutPage() {
+  const { t } = useLanguage();
+  const { getField, getImage } = useContent();
+  const [storyInView, setStoryInView] = useState(false);
+  const brandStoryRef = useRef<HTMLElement | null>(null);
+
+  useEffect(() => {
+    const section = brandStoryRef.current;
+    if (!section) return;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setStoryInView(true);
+          observer.disconnect();
+        }
+      },
+      { threshold: 0.22 }
+    );
+
+    observer.observe(section);
+    return () => observer.disconnect();
+  }, []);
+
   const values = [
     {
       icon: Heart,
-      title: "Cerita yang Jujur",
-      description:
-        "Kami tidak hanya mengambil foto. Kami merekam emosi, senyum tulus, air mata bahagia, dan momen-momen tak terduga yang membuat pernikahan Anda unik.",
+      title: getField("about", "philosophy", "heart_title", t({ ID: "Passion", EN: "Passion" })),
+      description: getField("about", "philosophy", "heart_desc", t({
+        ID: "Kami mengerjakan setiap proyek dengan ketulusan",
+        EN: "We approach every project with sincerity",
+      })),
     },
     {
       icon: Eye,
-      title: "Detail yang Bermakna",
-      description:
-        "Dari cincin yang berkilau hingga sentuhan tangan yang lembut, setiap detail kecil memiliki cerita besar. Kami memastikan tidak ada yang terlewat.",
+      title: getField("about", "philosophy", "eye_title", t({ ID: "Detail", EN: "Detail" })),
+      description: getField("about", "philosophy", "eye_desc", t({
+        ID: "Memperhatikan setiap detail momen",
+        EN: "Attentive to every moment detail",
+      })),
     },
     {
       icon: Sparkles,
-      title: "Estetika yang Abadi",
-      description:
-        "Kami tidak mengikuti tren sesaat. Gaya visual kami dirancang untuk tetap indah dan relevan bahkan puluhan tahun ke depan.",
+      title: getField("about", "philosophy", "sparkles_title", t({ ID: "Quality", EN: "Quality" })),
+      description: getField("about", "philosophy", "sparkles_desc", t({
+        ID: "Standar kualitas tinggi di setiap deliverable",
+        EN: "High quality standards in every deliverable",
+      })),
     },
     {
       icon: Users,
-      title: "Pendekatan Personal",
-      description:
-        "Setiap pasangan memiliki cerita yang berbeda. Kami mendengarkan, memahami, dan menyesuaikan pendekatan kami dengan kepribadian dan visi Anda.",
+      title: getField("about", "philosophy", "users_title", t({ ID: "Connection", EN: "Connection" })),
+      description: getField("about", "philosophy", "users_desc", t({
+        ID: "Membangun koneksi emosional dengan klien",
+        EN: "Building emotional connection with clients",
+      })),
     },
   ];
 
   const whyChooseUs = [
-    "Tim fotografer profesional dengan pengalaman 7+ tahun di industri wedding photography",
-    "Gaya editorial modern yang elegan dan timeless",
-    "Full control atas proses editing untuk hasil yang konsisten dan premium",
-    "Client portal sederhana untuk My Booking dan Progress",
-    "File high resolution tanpa watermark",
-    "Album cetak premium dengan finishing berkualitas tinggi",
-    "Komunikasi responsif via WhatsApp dan dashboard",
-    "Komitmen pada timeline yang jelas dan transparan",
+    getField("about", "why_choose_us", "about_why_1", t({ ID: "Tim fotografer profesional dengan pengalaman 7+ tahun di industri wedding photography", EN: "A professional photography team with 7+ years of wedding industry experience" })),
+    getField("about", "why_choose_us", "about_why_2", t({ ID: "Gaya editorial modern yang elegan dan timeless", EN: "A modern editorial style that feels elegant, warm, and timeless" })),
+    getField("about", "why_choose_us", "about_why_3", t({ ID: "Full control atas proses editing untuk hasil yang konsisten dan premium", EN: "Full editing control for consistent, premium-quality results" })),
+    getField("about", "why_choose_us", "about_why_4", t({ ID: "Client portal sederhana untuk My Booking dan Progress", EN: "A clear client portal for booking details and progress updates" })),
+    getField("about", "why_choose_us", "about_why_5", t({ ID: "File high resolution tanpa watermark", EN: "High-resolution files without watermark" })),
+    getField("about", "why_choose_us", "about_why_6", t({ ID: "Album cetak premium dengan finishing berkualitas tinggi", EN: "Premium printed albums with refined finishing" })),
+    getField("about", "why_choose_us", "about_why_7", t({ ID: "Komunikasi responsif via WhatsApp dan dashboard", EN: "Responsive communication through WhatsApp and dashboard" })),
+    getField("about", "why_choose_us", "about_why_8", t({ ID: "Komitmen pada timeline yang jelas dan transparan", EN: "A clear, transparent timeline from reservation to delivery" })),
   ];
 
   const testimonials = [
     {
-      name: "Dani & Sinta",
-      wedding: "Wedding at Four Seasons",
-      text: "Danivisual tidak hanya memotret pernikahan kami, mereka merekam setiap rasa yang kami alami hari itu. Ketika melihat album, kami bisa merasakan kembali kebahagiaan, haru, dan kehangatan yang sama.",
-      image: mediaAssets.wedding.couplePortrait,
+      name: getField("about", "testimonials", "about_testimonial_1_name", "Dani & Sinta"),
+      wedding: getField("about", "testimonials", "about_testimonial_1_wedding", t({ ID: "Wedding di Four Seasons", EN: "Wedding at Four Seasons" })),
+      text: getField("about", "testimonials", "about_testimonial_1_quote", t({
+        ID: "Danivisual tidak hanya memotret pernikahan kami, mereka merekam setiap rasa yang kami alami hari itu. Ketika melihat album, kami bisa merasakan kembali kebahagiaan, haru, dan kehangatan yang sama.",
+        EN: "Danivisual did not simply photograph our wedding. They preserved the feeling of the day. Looking through the album brings back the same joy, warmth, and emotion.",
+      })),
+      image: getImage("about_testimonial_1_image", mediaAssets.wedding.couplePortrait),
     },
     {
-      name: "Rama & Dita",
-      wedding: "Prewedding Studio Session",
-      text: "Tim Danivisual sangat profesional dan membuat kami merasa nyaman. Foto-foto yang dihasilkan sangat natural dan indah. Exactly what we wanted!",
-      image: mediaAssets.wedding.ringPortrait,
+      name: getField("about", "testimonials", "about_testimonial_2_name", "Rama & Dita"),
+      wedding: getField("about", "testimonials", "about_testimonial_2_wedding", t({ ID: "Sesi Prewedding Studio", EN: "Prewedding Studio Session" })),
+      text: getField("about", "testimonials", "about_testimonial_2_quote", t({
+        ID: "Tim Danivisual sangat profesional dan membuat kami merasa nyaman. Foto-foto yang dihasilkan natural, bersih, dan sesuai dengan visual yang kami bayangkan.",
+        EN: "The Danivisual team was professional and made us feel at ease. The photos felt natural, refined, and exactly aligned with what we imagined.",
+      })),
+      image: getImage("about_testimonial_2_image", mediaAssets.wedding.ringPortrait),
     },
     {
-      name: "Andi & Maya",
-      wedding: "Prewedding at Bromo",
-      text: "Perjalanan jauh ke Bromo sangat worth it! Danivisual tahu cara memanfaatkan cahaya dan landscape dengan sempurna. Hasilnya beyond our expectations.",
-      image: mediaAssets.editorial.outdoorCouple,
+      name: getField("about", "testimonials", "about_testimonial_3_name", "Andi & Maya"),
+      wedding: getField("about", "testimonials", "about_testimonial_3_wedding", "Prewedding at Bromo"),
+      text: getField("about", "testimonials", "about_testimonial_3_quote", t({
+        ID: "Perjalanan jauh ke Bromo terasa sangat layak. Danivisual tahu cara membaca cahaya dan lanskap dengan tepat. Hasilnya melampaui ekspektasi kami.",
+        EN: "The trip to Bromo was absolutely worth it. Danivisual knew how to shape the light and landscape beautifully. The result exceeded our expectations.",
+      })),
+      image: getImage("about_testimonial_3_image", mediaAssets.editorial.outdoorCouple),
     },
   ];
 
   const stats = [
-    { number: "500+", label: "Couples Documented" },
-    { number: "7+", label: "Years Experience" },
-    { number: "50K+", label: "Photos Captured" },
-    { number: "100%", label: "Client Satisfaction" },
+    { number: getField("about", "stats", "about_stats_couples_count", "500+"), label: t({ ID: "Pasangan Terdokumentasi", EN: "Couples Documented" }) },
+    { number: getField("about", "stats", "about_stats_years_count", "7+"), label: t({ ID: "Tahun Pengalaman", EN: "Years Experience" }) },
+    { number: getField("about", "stats", "about_stats_photos_count", "50K+"), label: t({ ID: "Foto Terkurasi", EN: "Photos Captured" }) },
+    { number: getField("about", "stats", "about_stats_satisfaction_count", "100%"), label: t({ ID: "Kepuasan Klien", EN: "Client Satisfaction" }) },
   ];
 
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
       <PageIntro
-        eyebrow="About Studio"
-        title="Every Frame Has a Feeling"
-        description="Danivisual adalah lebih dari sekadar fotografi. Kami adalah storyteller yang mengabadikan emosi, momen, dan kenangan yang akan Anda hargai selamanya."
+        eyebrow={getField("about", "intro", "eyebrow", t({ ID: "Tentang Studio", EN: "About the Studio" }))}
+        title={getField("about", "intro", "title", t({ ID: "Setiap Bingkai Menyimpan Rasa", EN: "Every Frame Holds a Feeling" }))}
+        description={getField("about", "intro", "description", t({
+          ID: "Danivisual mendokumentasikan momen dengan pendekatan editorial yang tenang, jujur, dan penuh perhatian, agar kenangan besar Anda tetap hidup dengan elegan.",
+          EN: "Danivisual documents meaningful occasions with a calm editorial eye, honest emotion, and meticulous care, preserving your most important memories with quiet elegance.",
+        }))}
       />
 
       {/* Our Story */}
-      <section className="py-24 px-6 lg:px-8 bg-background">
-        <div className="max-w-7xl mx-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center">
-            <div>
-              <div className="w-12 h-[1px] bg-premium-beige mb-8" />
-              <h2 className="text-4xl lg:text-5xl mb-6" style={{ fontFamily: "var(--font-heading)" }}>
-                Our Story
-              </h2>
-              <div className="space-y-6 text-foreground-secondary leading-relaxed">
-                <p>
-                  Danivisual lahir dari keyakinan sederhana: bahwa setiap momen istimewa dalam
-                  hidup layak untuk diingat dengan cara yang indah dan jujur.
-                </p>
-                <p>
-                  Dimulai pada tahun 2019, kami telah mendokumentasikan ratusan cerita cinta—dari
-                  pernikahan intimate di backyard hingga celebration megah di venue mewah. Setiap
-                  pasangan mengajarkan kami sesuatu yang baru tentang cinta, keluarga, dan apa arti
-                  sebenarnya dari commitment.
-                </p>
-                <p>
-                  Kami bukan hanya pengamat. Kami adalah bagian dari hari besar Anda, merekam
-                  setiap tawa, air mata, dan momen tak terduga yang membuat cerita Anda unik.
-                </p>
-                <p className="font-medium text-foreground" style={{ fontFamily: "var(--font-heading)" }}>
-                  "Kami percaya bahwa fotografi terbaik terjadi ketika Anda melupakan kamera dan
-                  hanya merasakan momen."
-                </p>
-              </div>
+      <section
+        ref={brandStoryRef}
+        className={`brand-story-section px-6 py-20 md:px-8 lg:py-28 ${storyInView ? "is-visible" : ""}`}
+      >
+        <div className="mx-auto grid max-w-[1180px] items-center gap-14 lg:grid-cols-[0.96fr_0.86fr] lg:gap-24 xl:gap-[120px]">
+          <div className="brand-story-copy max-w-2xl">
+            <div className="mb-6 flex items-center gap-4">
+              <span className="h-px w-12 bg-[#b99a62]" />
+              <span className="text-[10px] font-medium tracking-[0.3em] text-[#8f6f3d]">
+                {t({ ID: "Cerita Kami", EN: "Our Story" })}
+              </span>
             </div>
-            <div className="relative">
-              <div className="aspect-[4/5] rounded-sm overflow-hidden">
+            <h2
+              className="brand-story-heading mb-7 text-[#111111]"
+              style={{ fontFamily: "var(--font-heading)" }}
+            >
+              {t({ ID: "Cerita Kami", EN: "Our Story" })}
+            </h2>
+            <div className="space-y-5 text-[15px] leading-[1.85] text-[#625d55] lg:text-base">
+              <p>
+                {getField("about", "brand_story", "about_brand_paragraph_1", t({
+                  ID: "Danivisual lahir dari keyakinan sederhana: setiap momen istimewa layak dikenang dengan cara yang indah, jujur, dan penuh rasa.",
+                  EN: "Danivisual was born from a simple belief: every meaningful moment deserves to be remembered beautifully, honestly, and with feeling.",
+                }))}
+              </p>
+              <p>
+                {getField("about", "brand_story", "about_brand_paragraph_2", t({
+                  ID: "Sejak 2019, kami mendokumentasikan ratusan cerita cinta, dari pernikahan intimate hingga perayaan yang megah. Bagi kami, dokumentasi terbaik bukan hanya tentang gambar yang indah, tetapi tentang rasa yang tetap hidup saat dikenang kembali.",
+                  EN: "Since 2019, we have documented hundreds of love stories, from intimate weddings to grand celebrations. To us, the finest documentation is not only beautiful imagery, but feeling that remains alive when revisited.",
+                }))}
+              </p>
+              <p>
+                {getField("about", "brand_story", "about_brand_paragraph_3", t({
+                  ID: "Kami hadir bukan sekadar sebagai pengamat. Kami menjadi bagian dari hari besar Anda, menangkap tawa, air mata, dan momen kecil yang sering kali menjadi cerita paling berarti.",
+                  EN: "We are present as more than observers. We become part of your day with care, capturing laughter, tears, and the quiet moments that often become the most meaningful memories.",
+                }))}
+              </p>
+            </div>
+            <figure className="mt-8 border-l border-[#b99a62]/65 pl-6">
+              <blockquote
+                className="text-[22px] leading-[1.35] text-[#151515] lg:text-2xl"
+                style={{ fontFamily: "var(--font-heading)" }}
+              >
+                {t({
+                  ID: "“Kami percaya foto terbaik terjadi ketika Anda lupa pada kamera, dan benar-benar merasakan momennya.”",
+                  EN: "“We believe the best photographs happen when you forget the camera and fully feel the moment.”",
+                })}
+              </blockquote>
+              <figcaption className="mt-5 text-[10px] font-medium uppercase tracking-[0.28em] text-[#8f6f3d]">
+                Since 2019 · Wedding Documentation
+              </figcaption>
+            </figure>
+          </div>
+
+          <div className="brand-story-photo-wrap">
+            <figure className="brand-story-frame">
+              <div className="brand-story-image overflow-hidden">
                 <img
                   src={mediaAssets.wedding.couplePortrait}
-                  alt="Our Story"
-                  className="w-full h-full object-cover"
+                  alt="Cerita wedding Danivisual dengan pasangan di pelaminan"
+                  loading="lazy"
+                  className="h-full w-full object-cover"
                 />
+                <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.08)_0%,transparent_42%,rgba(17,17,17,0.08)_100%)]" />
               </div>
-              <div className="absolute -bottom-6 -right-6 w-full h-full border-2 border-premium-beige rounded-sm -z-10"></div>
-            </div>
+              <figcaption className="mt-4 text-center text-[10px] uppercase tracking-[0.22em] text-[#8f6f3d]/80">
+                Wedding stories captured with care.
+              </figcaption>
+            </figure>
           </div>
         </div>
       </section>
@@ -129,10 +205,13 @@ export default function AboutPage() {
           <div className="text-center mb-16">
             <div className="w-16 h-[1px] bg-premium-beige mx-auto mb-8" />
             <h2 className="text-4xl lg:text-5xl mb-4" style={{ fontFamily: "var(--font-heading)" }}>
-              Our Philosophy
+              {t({ ID: "Filosofi Kami", EN: "Our Philosophy" })}
             </h2>
             <p className="text-foreground-secondary max-w-2xl mx-auto">
-              Prinsip yang memandu setiap frame yang kami ciptakan
+              {t({
+                ID: "Prinsip yang memandu setiap frame yang kami ciptakan",
+                EN: "The principles guiding every frame we create",
+              })}
             </p>
           </div>
 
@@ -213,23 +292,28 @@ export default function AboutPage() {
                 </div>
                 <div className="absolute inset-3 bg-[linear-gradient(180deg,transparent_45%,rgba(0,0,0,0.30)_100%)]" />
                 <div className="absolute bottom-7 left-7 border border-white/35 bg-black/25 px-4 py-3 text-white backdrop-blur-sm">
-                  <p className="text-[10px] uppercase tracking-[0.24em] text-white/72">Premium Detail</p>
-                  <p className="mt-1 text-sm">Consistent Visual Quality</p>
+                  <p className="text-[10px] tracking-[0.24em] text-white/72">
+                    {t({ ID: "Detail Premium", EN: "Premium Detail" })}
+                  </p>
+                  <p className="mt-1 text-sm">{t({ ID: "Kualitas Visual Konsisten", EN: "Consistent Visual Quality" })}</p>
                 </div>
               </div>
             </div>
             <div className="order-1 lg:order-2">
               <div className="mb-5 flex items-center gap-4">
                 <span className="h-px w-12 bg-premium-beige" />
-                <span className="text-[10px] uppercase tracking-[0.3em] text-premium-beige">Why Us</span>
+                <span className="text-[10px] tracking-[0.3em] text-premium-beige">
+                  {t({ ID: "Alasan Memilih Kami", EN: "Why Us" })}
+                </span>
               </div>
               <h2 className="mb-5 max-w-2xl text-4xl leading-tight lg:text-5xl" style={{ fontFamily: "var(--font-heading)" }}>
-                Why Choose Danivisual
+                {t({ ID: "Mengapa Memilih Danivisual", EN: "Why Choose Danivisual" })}
               </h2>
               <p className="mb-8 max-w-2xl text-sm leading-7 text-foreground-secondary sm:text-base">
-                Kami memahami bahwa memilih fotografer untuk hari besar Anda adalah keputusan
-                penting. Setiap proses dibuat rapi, transparan, dan diarahkan untuk hasil visual
-                yang konsisten.
+                {t({
+                  ID: "Kami memahami bahwa memilih fotografer untuk hari besar Anda adalah keputusan penting. Setiap proses dibuat rapi, transparan, dan diarahkan untuk hasil visual yang konsisten.",
+                  EN: "Choosing the right photographer for your meaningful day is a significant decision. Every step is structured, transparent, and directed toward consistent visual quality.",
+                })}
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {whyChooseUs.map((item, index) => (
@@ -260,10 +344,13 @@ export default function AboutPage() {
           <div className="text-center mb-16">
             <div className="w-16 h-[1px] bg-premium-beige mx-auto mb-8" />
             <h2 className="text-4xl lg:text-5xl mb-4" style={{ fontFamily: "var(--font-heading)" }}>
-              What Our Couples Say
+              {t({ ID: "Cerita dari Klien Kami", EN: "What Our Couples Say" })}
             </h2>
             <p className="text-foreground-secondary max-w-2xl mx-auto">
-              Cerita dari pasangan yang telah mempercayai kami
+              {t({
+                ID: "Cerita dari pasangan yang telah mempercayai kami",
+                EN: "Reflections from couples who trusted us with their story",
+              })}
             </p>
           </div>
 
@@ -298,13 +385,13 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="w-16 h-[1px] bg-premium-beige mx-auto mb-8" />
           <h2 className="text-4xl lg:text-5xl mb-6" style={{ fontFamily: "var(--font-heading)" }}>
-            Our Commitment to You
+            {t({ ID: "Komitmen Kami untuk Anda", EN: "Our Commitment to You" })}
           </h2>
           <p className="text-lg text-foreground-secondary leading-relaxed mb-8">
-            Ketika Anda memilih Danivisual, Anda tidak hanya mendapatkan fotografer. Anda
-            mendapatkan partner yang akan memastikan setiap momen berharga terabadikan dengan
-            sempurna. Kami berkomitmen untuk transparansi, kualitas, dan pengalaman yang tak
-            terlupakan—dari konsultasi pertama hingga penyerahan album final.
+            {t({
+              ID: "Ketika Anda memilih Danivisual, Anda tidak hanya mendapatkan fotografer. Anda mendapatkan partner yang memastikan setiap momen berharga terdokumentasi dengan rapi. Kami berkomitmen pada transparansi, kualitas, dan pengalaman yang berkesan dari konsultasi pertama hingga penyerahan album final.",
+              EN: "When you choose Danivisual, you receive more than photographers. You gain a creative partner committed to preserving your meaningful moments with clarity, care, and consistency from the first consultation to the final album delivery.",
+            })}
           </p>
           <div className="flex items-center justify-center gap-3">
             <Camera size={24} className="text-premium-beige" />
@@ -319,24 +406,26 @@ export default function AboutPage() {
       <section className="py-24 px-6 lg:px-8 bg-gradient-to-br from-background-soft to-white border-t border-border-line">
         <div className="max-w-4xl mx-auto text-center">
           <h2 className="text-4xl lg:text-5xl mb-6" style={{ fontFamily: "var(--font-heading)" }}>
-            Let's Create Your Story Together
+            {t({ ID: "Mari Ciptakan Cerita Anda", EN: "Let's Create Your Story Together" })}
           </h2>
           <p className="text-lg text-foreground-secondary mb-10 max-w-2xl mx-auto">
-            Ceritakan rencana wedding, prewedding, atau event Anda. Mari kita wujudkan visual story
-            yang akan Anda kenang selamanya.
+            {t({
+              ID: "Ceritakan rencana wedding, prewedding, atau event Anda. Mari kita wujudkan visual story yang akan Anda kenang selamanya.",
+              EN: "Share your wedding, prewedding, or event plans with us. Together, we will shape a visual story worth returning to for years.",
+            })}
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link
               to="/packages"
               className="px-8 py-4 bg-dark-premium text-white hover:bg-dark-premium/90 transition-all rounded-sm text-sm tracking-wide"
             >
-              View Packages
+              {t({ ID: "Lihat Paket", EN: "View Packages" })}
             </Link>
             <Link
               to="/portfolio"
               className="px-8 py-4 border border-border-line text-foreground hover:bg-background-soft transition-all rounded-sm text-sm tracking-wide"
             >
-              View Our Work
+              {t({ ID: "Lihat Karya Kami", EN: "View Our Work" })}
             </Link>
           </div>
         </div>

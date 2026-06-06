@@ -6,11 +6,11 @@ export default function DashboardHeader() {
   const { user } = useAuth();
 
   return (
-    <header className="hidden border-b border-border-line bg-white px-8 py-5 lg:fixed lg:left-60 lg:right-0 lg:top-0 lg:z-40 lg:block">
+    <header className="hidden border-b border-white/70 bg-white/88 px-6 py-4 shadow-[0_10px_34px_rgba(15,23,42,0.035)] backdrop-blur lg:fixed lg:left-60 lg:right-0 lg:top-0 lg:z-40 lg:block">
       <div className="flex items-center justify-between gap-6">
         <div>
-          <p className="text-xs uppercase tracking-[0.22em] text-foreground-secondary">Private client portal</p>
-          <h1 className="mt-1 text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
+          <p className="text-[11px] uppercase tracking-[0.2em] text-foreground-secondary">Private client portal</p>
+          <h1 className="mt-0.5 text-[28px] leading-tight" style={{ fontFamily: "var(--font-heading)" }}>
             Welcome, {user?.name || "Customer"}
           </h1>
         </div>
@@ -18,7 +18,7 @@ export default function DashboardHeader() {
           href={`https://wa.me/${ADMIN_WHATSAPP}`}
           target="_blank"
           rel="noreferrer"
-          className="inline-flex items-center gap-2 border border-border-line px-4 py-2 text-sm text-foreground-secondary hover:bg-background-soft hover:text-foreground"
+          className="premium-button-secondary inline-flex min-h-10 items-center gap-2 px-4 text-sm text-foreground-secondary"
         >
           <MessageCircle size={16} />
           Chat Admin

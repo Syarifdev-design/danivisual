@@ -43,11 +43,6 @@ export interface PaymentVerification {
   notes?: string;
 }
 
-interface BookingReference {
-  id: string;
-  orderNumber: string;
-}
-
 // ============================================================================
 // LocalStorage Keys
 // ============================================================================
@@ -71,62 +66,6 @@ const getLocalData = <T>(key: string, defaultValue: T): T => {
 
 const setLocalData = <T>(key: string, data: T): void => {
   localStorage.setItem(key, JSON.stringify(data));
-};
-
-export const getBookingIdFromPayment = (payment: Pick<Payment, "bookingId" | "bookingOrderNumber">): string => {
-  return payment.bookingId || "";
-};
-
-export const getBookingOrderNumber = (payment: Pick<Payment, "bookingId" | "bookingOrderNumber">): string => {
-  return payment.bookingOrderNumber || "";
-};
-
-export const findBookingForPayment = <T extends { id?: string; orderNumber?: string }>(
-  payment: Pick<Payment, "bookingId" | "bookingOrderNumber">,
-  bookings: T[]
-): T | undefined => {
-  if (payment.bookingId) {
-    const byId = bookings.find((booking) => booking.id === payment.bookingId);
-    if (byId) return byId;
-  }
-
-  if (payment.bookingOrderNumber) {
-    return bookings.find((booking) => booking.orderNumber === payment.bookingOrderNumber);
-  }
-
-  return undefined;
-};
-
-const resolveBookingReference = async (
-  bookingId?: string,
-  bookingOrderNumber?: string
-): Promise<BookingReference> => {
-  if (bookingId || !bookingOrderNumber || !isSupabaseConfigured()) {
-    return {
-      id: bookingId || "",
-      orderNumber: bookingOrderNumber || "",
-    };
-  }
-
-  const client = getSupabaseClient();
-  if (!client) {
-    return { id: "", orderNumber: bookingOrderNumber };
-  }
-
-  const { data, error } = await client
-    .from("bookings")
-    .select("id, order_number")
-    .eq("order_number", bookingOrderNumber)
-    .maybeSingle();
-
-  if (error || !data) {
-    return { id: "", orderNumber: bookingOrderNumber };
-  }
-
-  return {
-    id: data.id || "",
-    orderNumber: data.order_number || bookingOrderNumber,
-  };
 };
 
 // ============================================================================
@@ -153,8 +92,8 @@ export const getPayments = async (): Promise<Payment[]> => {
 
     return (data || []).map((row) => ({
       id: row.id,
-      bookingId: row.booking_id || "",
-      bookingOrderNumber: row.booking_order_number || "",
+      bookingId: row.booking_id,
+      bookingOrderNumber: row.booking_order_number,
       customerName: row.customer_name,
       amount: row.amount,
       method: row.method as PaymentMethod,
@@ -213,8 +152,8 @@ export const getPaymentById = async (id: string): Promise<Payment | null> => {
 
     return {
       id: data.id,
-      bookingId: data.booking_id || "",
-      bookingOrderNumber: data.booking_order_number || "",
+      bookingId: data.booking_id,
+      bookingOrderNumber: data.booking_order_number,
       customerName: data.customer_name,
       amount: data.amount,
       method: data.method as PaymentMethod,
@@ -238,11 +177,8 @@ export const getPaymentById = async (id: string): Promise<Payment | null> => {
 export const createPayment = async (
   paymentData: Omit<Payment, "id" | "createdAt">
 ): Promise<Payment | null> => {
-  const bookingRef = await resolveBookingReference(paymentData.bookingId, paymentData.bookingOrderNumber);
   const newPayment: Payment = {
     ...paymentData,
-    bookingId: bookingRef.id,
-    bookingOrderNumber: bookingRef.orderNumber,
     id: generateId(),
     createdAt: new Date().toISOString(),
   };
@@ -255,7 +191,7 @@ export const createPayment = async (
       .from("payments")
       .insert({
         id: newPayment.id,
-        booking_id: newPayment.bookingId || null,
+        booking_id: newPayment.bookingId,
         booking_order_number: newPayment.bookingOrderNumber,
         customer_name: newPayment.customerName,
         amount: newPayment.amount,
@@ -278,8 +214,8 @@ export const createPayment = async (
 
     return {
       id: data.id,
-      bookingId: data.booking_id || "",
-      bookingOrderNumber: data.booking_order_number || "",
+      bookingId: data.booking_id,
+      bookingOrderNumber: data.booking_order_number,
       customerName: data.customer_name,
       amount: data.amount,
       method: data.method as PaymentMethod,
@@ -359,44 +295,16 @@ export const updatePaymentStatus = async (
       return false;
     }
 
-    // If verified, also update booking paid amount using booking_id first,
-    // with order number fallback for legacy payments.
+    // If verified, also update booking paid amount
     if (status === "verified" && verifiedBy) {
       const payment = await getPaymentById(paymentId);
       if (payment) {
-        let bookingQuery = client
-          .from("bookings")
-          .select("id, paid_amount, total_amount, status")
-          .limit(1);
-
-        bookingQuery = payment.bookingId
-          ? bookingQuery.eq("id", payment.bookingId)
-          : bookingQuery.eq("order_number", payment.bookingOrderNumber);
-
-        const { data: bookingRows } = await bookingQuery;
-        const booking = bookingRows?.[0];
-
-        if (booking && booking.status !== "cancelled") {
-          const paidAmount = Number(booking.paid_amount || 0) + Number(payment.amount || 0);
-          const totalAmount = Number(booking.total_amount || 0);
-          const remainingAmount = Math.max(0, totalAmount - paidAmount);
-          const nextStatus =
-            payment.type === "dp" && booking.status === "pending"
-              ? "confirmed"
-              : payment.type === "final_payment" || remainingAmount <= 0
-              ? "in_progress"
-              : booking.status;
-
-          await client
-            .from("bookings")
-            .update({
-              paid_amount: paidAmount,
-              remaining_amount: remainingAmount,
-              status: nextStatus,
-              updated_at: timestamp,
-            })
-            .eq("id", booking.id);
-        }
+        await client.rpc("add_booking_payment", {
+          p_order_number: payment.bookingOrderNumber,
+          p_amount: payment.amount,
+        }).catch(() => {
+          // RPC might not exist, ignore
+        });
       }
     }
 
@@ -497,10 +405,9 @@ export const uploadPaymentProof = async (
 /**
  * Hitung total payment untuk booking
  */
-export const calculateTotalPaid = async (orderNumber: string, bookingId?: string): Promise<number> => {
-  const payments = await getPayments();
+export const calculateTotalPaid = async (orderNumber: string): Promise<number> => {
+  const payments = await getPaymentsByOrderNumber(orderNumber);
   return payments
-    .filter((p) => (bookingId && p.bookingId === bookingId) || p.bookingOrderNumber === orderNumber)
     .filter((p) => p.status === "verified")
     .reduce((sum, p) => sum + p.amount, 0);
 };
@@ -510,10 +417,9 @@ export const calculateTotalPaid = async (orderNumber: string, bookingId?: string
  */
 export const isBookingPaidOff = async (
   orderNumber: string,
-  totalAmount: number,
-  bookingId?: string
+  totalAmount: number
 ): Promise<boolean> => {
-  const totalPaid = await calculateTotalPaid(orderNumber, bookingId);
+  const totalPaid = await calculateTotalPaid(orderNumber);
   return totalPaid >= totalAmount;
 };
 

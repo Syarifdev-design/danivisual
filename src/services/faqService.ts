@@ -53,7 +53,7 @@ const setLocalData = <T>(key: string, data: T): void => {
 
 /**
  * Ambil semua FAQs
- * Urutan: Supabase -> localStorage -> defaultFaqs
+ * Urutan: Supabase → localStorage → defaultFaqs
  */
 export const getFaqs = async (): Promise<FAQ[]> => {
   if (isSupabaseConfigured()) {
@@ -66,6 +66,7 @@ export const getFaqs = async (): Promise<FAQ[]> => {
           .order("sort_order", { ascending: true });
 
         if (!error && data && data.length > 0) {
+          // Map dan cache ke localStorage
           const faqs = (data || []).map((row) => ({
             id: row.id,
             category: row.category,
@@ -74,6 +75,7 @@ export const getFaqs = async (): Promise<FAQ[]> => {
             sortOrder: row.sort_order,
             isPublished: row.is_published ?? true,
           }));
+          // Cache untuk offline access
           setLocalData(STORAGE_KEY, faqs);
           return faqs;
         }
@@ -83,11 +85,13 @@ export const getFaqs = async (): Promise<FAQ[]> => {
     }
   }
 
+  // Fallback localStorage
   const storedFaqs = getLocalData<FAQ[]>(STORAGE_KEY, []);
   if (storedFaqs && storedFaqs.length > 0) {
     return storedFaqs;
   }
 
+  // Fallback terakhir: defaultFaqs
   return defaultFaqs as FAQ[];
 };
 
@@ -195,6 +199,7 @@ export const createFaq = async (
             sortOrder: data.sort_order,
             isPublished: data.is_published ?? true,
           };
+          // Update localStorage cache
           setLocalData(STORAGE_KEY, [...allFaqs, created]);
           return created;
         }
@@ -204,6 +209,7 @@ export const createFaq = async (
     }
   }
 
+  // Fallback localStorage
   const allNewFaqs = [...allFaqs, newFaq];
   setLocalData(STORAGE_KEY, allNewFaqs);
   return newFaq;
@@ -225,8 +231,7 @@ export const updateFaq = async (
         if (updates.question !== undefined) dbUpdates.question = updates.question;
         if (updates.answer !== undefined) dbUpdates.answer = updates.answer;
         if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
-        if (updates.isPublished !== undefined)
-          dbUpdates.is_published = updates.isPublished;
+        if (updates.isPublished !== undefined) dbUpdates.is_published = updates.isPublished;
         dbUpdates.updated_at = new Date().toISOString();
 
         const { data, error } = await client
@@ -245,6 +250,7 @@ export const updateFaq = async (
             sortOrder: data.sort_order,
             isPublished: data.is_published ?? true,
           };
+          // Update localStorage cache
           const allFaqs = await getFaqs();
           const newFaqs = allFaqs.map((f) => (f.id === id ? updated : f));
           setLocalData(STORAGE_KEY, newFaqs);
@@ -256,6 +262,7 @@ export const updateFaq = async (
     }
   }
 
+  // Fallback localStorage
   const allFaqs = await getFaqs();
   const updatedFaqs = allFaqs.map((faq) =>
     faq.id === id ? { ...faq, ...updates } : faq
@@ -278,11 +285,9 @@ export const deleteFaq = async (id: string): Promise<boolean> => {
           .eq("id", id);
 
         if (!error) {
+          // Update localStorage cache
           const allFaqs = await getFaqs();
-          setLocalData(
-            STORAGE_KEY,
-            allFaqs.filter((faq) => faq.id !== id)
-          );
+          setLocalData(STORAGE_KEY, allFaqs.filter((faq) => faq.id !== id));
           return true;
         }
       } catch (err) {
@@ -291,6 +296,7 @@ export const deleteFaq = async (id: string): Promise<boolean> => {
     }
   }
 
+  // Fallback localStorage
   const allFaqs = await getFaqs();
   setLocalData(
     STORAGE_KEY,
@@ -300,30 +306,27 @@ export const deleteFaq = async (id: string): Promise<boolean> => {
 };
 
 /**
- * Reorder FAQs
+ * Reorder FAQs (update sortOrder berdasarkan array order)
  */
 export const reorderFaqs = async (ids: string[]): Promise<boolean> => {
   if (isSupabaseConfigured()) {
     const client = getSupabaseClient();
     if (client) {
       try {
+        // Update each FAQ's sortOrder
         for (let i = 0; i < ids.length; i++) {
           await client
             .from("faqs")
-            .update({
-              sort_order: i + 1,
-              updated_at: new Date().toISOString(),
-            })
+            .update({ sort_order: i + 1, updated_at: new Date().toISOString() })
             .eq("id", ids[i]);
         }
+        // Update localStorage cache
         const allFaqs = await getFaqs();
         const faqMap = new Map(allFaqs.map((f) => [f.id, f]));
-        const reordered = ids
-          .map((id, index) => {
-            const faq = faqMap.get(id);
-            return faq ? { ...faq, sortOrder: index + 1 } : null;
-          })
-          .filter(Boolean) as FAQ[];
+        const reordered = ids.map((id, index) => {
+          const faq = faqMap.get(id);
+          return faq ? { ...faq, sortOrder: index + 1 } : null;
+        }).filter(Boolean) as FAQ[];
         setLocalData(STORAGE_KEY, reordered);
         return true;
       } catch (err) {
@@ -332,14 +335,13 @@ export const reorderFaqs = async (ids: string[]): Promise<boolean> => {
     }
   }
 
+  // Fallback localStorage
   const allFaqs = await getFaqs();
   const faqMap = new Map(allFaqs.map((f) => [f.id, f]));
-  const reordered = ids
-    .map((id, index) => {
-      const faq = faqMap.get(id);
-      return faq ? { ...faq, sortOrder: index + 1 } : null;
-    })
-    .filter(Boolean) as FAQ[];
+  const reordered = ids.map((id, index) => {
+    const faq = faqMap.get(id);
+    return faq ? { ...faq, sortOrder: index + 1 } : null;
+  }).filter(Boolean) as FAQ[];
   setLocalData(STORAGE_KEY, reordered);
   return true;
 };
@@ -350,15 +352,21 @@ export const reorderFaqs = async (ids: string[]): Promise<boolean> => {
 export const toggleFaqPublished = async (id: string): Promise<boolean> => {
   const faq = await getFaqById(id);
   if (!faq) return false;
+
   const result = await updateFaq(id, { isPublished: !faq.isPublished });
   return result !== null;
 };
+
+// ============================================================================
+// Export/Import
+// ============================================================================
 
 /**
  * Export FAQ data ke JSON
  */
 export const exportFaqData = async (): Promise<string> => {
   const faqs = await getFaqs();
+
   return JSON.stringify(
     {
       schema: "danivisual.faqs.v1",
@@ -376,9 +384,11 @@ export const exportFaqData = async (): Promise<string> => {
 export const importFaqData = async (payload: string): Promise<boolean> => {
   try {
     const parsed = JSON.parse(payload);
+
     if (!parsed.schema?.includes("danivisual.faqs")) {
       throw new Error("Format tidak valid");
     }
+
     if (parsed.faqs) {
       setLocalData(STORAGE_KEY, parsed.faqs);
     }

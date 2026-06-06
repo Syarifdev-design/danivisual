@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Check, ChevronRight, ArrowLeft } from "lucide-react";
 import { Link, useNavigate } from "react-router";
+import { defaultPaymentAccounts } from "../../data/paymentAccounts";
+import type { PaymentAccount } from "../../../services/paymentAccountService";
 
 type Step = 1 | 2 | 3 | 4 | 5;
 type DeliveryMethod = "ekspedisi" | "cod" | "pickup";
@@ -11,6 +13,30 @@ export default function Checkout() {
   const [isSubmitted, setIsSubmitted] = useState(false);
   const [deliveryMethod, setDeliveryMethod] = useState<DeliveryMethod | null>(null);
   const [agreedToTerms, setAgreedToTerms] = useState(false);
+
+  // Payment account state
+  const [paymentAccount, setPaymentAccount] = useState<PaymentAccount | null>(
+    defaultPaymentAccounts.find(acc => acc.isDefault) || defaultPaymentAccounts[0] || null
+  );
+
+  // Get active payment account from localStorage or default
+  useEffect(() => {
+    const storedAccounts = localStorage.getItem("danivisual_payment_accounts");
+    if (storedAccounts) {
+      try {
+        const accounts: PaymentAccount[] = JSON.parse(storedAccounts);
+        const activeAccount = accounts.find((acc) => acc.isActive && acc.isDefault)
+          || accounts.find((acc) => acc.isActive && (acc.paymentType === "all" || acc.paymentType === "dp"))
+          || accounts.find((acc) => acc.isActive)
+          || accounts[0];
+        if (activeAccount) {
+          setPaymentAccount(activeAccount);
+        }
+      } catch {
+        // Use default
+      }
+    }
+  }, []);
 
   const steps = [
     { number: 1, title: "Paket & Add-ons" },
@@ -134,7 +160,7 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between items-start">
                   <span className="text-sm text-foreground-secondary">Harga Paket</span>
-                  <span className="text-sm font-medium">Rp 8.000.000</span>
+                  <span className="text-sm font-medium">Rp 4.400.000</span>
                 </div>
               </div>
 
@@ -142,12 +168,12 @@ export default function Checkout() {
                 <h3 className="text-sm font-medium mb-3">Add-ons Terpilih:</h3>
                 <div className="space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-foreground-secondary">Extra Hours (2 jam)</span>
-                    <span className="font-medium">Rp 1.000.000</span>
+                    <span className="text-foreground-secondary">Extra day</span>
+                    <span className="font-medium">Rp 1.200.000</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-foreground-secondary">Drone Documentation</span>
-                    <span className="font-medium">Rp 1.500.000</span>
+                    <span className="text-foreground-secondary">Drone + pilot</span>
+                    <span className="font-medium">Rp 400.000</span>
                   </div>
                 </div>
               </div>
@@ -450,8 +476,17 @@ export default function Checkout() {
               </div>
               <div className="p-4 bg-white border border-premium-beige/30 rounded-sm">
                 <p className="text-xs text-foreground-secondary mb-2">Transfer ke:</p>
-                <p className="font-medium">BRI - 645201020316531</p>
-                <p className="text-sm text-foreground-secondary">DANI INDRA FIRMANSYAH</p>
+                {paymentAccount ? (
+                  <>
+                    <p className="font-medium">{paymentAccount.bankName} - {paymentAccount.accountNumber}</p>
+                    <p className="text-sm text-foreground-secondary">{paymentAccount.accountHolderName}</p>
+                    {paymentAccount.branch && (
+                      <p className="text-xs text-foreground-secondary mt-1">Cabang: {paymentAccount.branch}</p>
+                    )}
+                  </>
+                ) : (
+                  <p className="text-amber-600 text-sm">Rekening belum tersedia. Hubungi admin.</p>
+                )}
               </div>
             </div>
 
@@ -488,11 +523,11 @@ export default function Checkout() {
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
                   <span className="text-foreground-secondary">Harga Paket</span>
-                  <span>Rp 8.000.000</span>
+                  <span>Rp 4.400.000</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-foreground-secondary">Total Add-ons</span>
-                  <span>Rp 2.500.000</span>
+                  <span>Rp 1.600.000</span>
                 </div>
                 {deliveryMethod === "ekspedisi" && (
                   <div className="flex justify-between">
@@ -503,7 +538,7 @@ export default function Checkout() {
                 <div className="w-full h-[1px] bg-border-line my-2" />
                 <div className="flex justify-between font-medium">
                   <span>Total Sementara</span>
-                  <span>Rp 10.535.000</span>
+                  <span>Rp 6.035.000</span>
                 </div>
                 <div className="flex justify-between text-premium-beige">
                   <span>DP Wajib</span>
@@ -511,7 +546,7 @@ export default function Checkout() {
                 </div>
                 <div className="flex justify-between font-medium text-lg">
                   <span>Sisa Pembayaran</span>
-                  <span>Rp 10.035.000</span>
+                  <span>Rp 5.535.000</span>
                 </div>
               </div>
             </div>

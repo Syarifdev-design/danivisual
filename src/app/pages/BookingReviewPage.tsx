@@ -22,10 +22,12 @@ export default function BookingReviewPage() {
     );
   }
 
-  const submit = () => {
+  const handleSubmit = async () => {
     booking.setReviewAccepted(true);
-    booking.submitBooking();
-    navigate("/booking-success");
+    const result = await booking.submitBooking();
+    if (result.success) {
+      navigate("/booking-success");
+    }
   };
 
   return (
@@ -39,6 +41,16 @@ export default function BookingReviewPage() {
           </p>
         </div>
       </section>
+
+      {/* Error Banner */}
+      {booking.submitError && (
+        <div className="mx-auto max-w-6xl px-5 py-3">
+          <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+            <p className="font-medium">Submit gagal: {booking.submitError}</p>
+            <p className="mt-1 text-red-600">Silakan coba lagi atau hubungi admin.</p>
+          </div>
+        </div>
+      )}
 
       <main className="mx-auto max-w-6xl px-5 py-8 lg:px-8 lg:py-10">
         <section className="border border-border-line bg-white p-5 md:p-8">
@@ -136,8 +148,8 @@ export default function BookingReviewPage() {
             <Link to="/checkout" className="flex min-h-12 items-center justify-center rounded-xl border border-border-line px-6 py-3 text-sm hover:bg-background-soft">
               Kembali
             </Link>
-            <button onClick={submit} className="min-h-12 rounded-xl bg-dark-premium px-8 py-3 text-sm text-white">
-              Submit Booking
+            <button onClick={handleSubmit} disabled={booking.isSubmitting} className="min-h-12 rounded-xl bg-dark-premium px-8 py-3 text-sm text-white disabled:opacity-50">
+              {booking.isSubmitting ? "Menyimpan..." : "Submit Booking"}
             </button>
             <a href={buildPaymentWhatsappLink() || `https://wa.me/${ADMIN_WHATSAPP}`} target="_blank" rel="noreferrer" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border-line px-6 py-3 text-sm hover:bg-background-soft">
               <MessageCircle size={16} /> Chat Admin

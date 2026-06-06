@@ -13,6 +13,14 @@ import ctaBackgroundVideo from "../../../asset/152798-803733100.webm";
 import outdoorCouple from "../../../asset/web/outdoor-couple.jpg";
 import openingHeroVideo from "../../../asset/128905-742901848.webm";
 import ringPortrait from "../../../asset/web/ring-portrait.jpg";
+import bannerHomeImage1 from "../../../asset/banner_home/image_1.jpg";
+import bannerHomeImage2 from "../../../asset/banner_home/image_2.jpg";
+import bannerHomeImage3 from "../../../asset/banner_home/image_3.jpg";
+import bannerHomeImage4 from "../../../asset/banner_home/image_4.jpg";
+import bannerHomeImage5 from "../../../asset/banner_home/image_5.jpg";
+import bannerHomeImage6 from "../../../asset/banner_home/image_6.jpg";
+import bannerHomeImage7 from "../../../asset/banner_home/image_7.jpg";
+import bannerHomeImage8 from "../../../asset/banner_home/image_8.jpg";
 
 export const mediaAssets = {
   hero: {
@@ -20,6 +28,16 @@ export const mediaAssets = {
     akad: heroAkad,
     ring: heroRing,
     moment: heroMoment,
+    bannerHome: [
+      bannerHomeImage1,
+      bannerHomeImage2,
+      bannerHomeImage3,
+      bannerHomeImage4,
+      bannerHomeImage5,
+      bannerHomeImage6,
+      bannerHomeImage7,
+      bannerHomeImage8,
+    ],
   },
   wedding: {
     ceremony: akadClose,
@@ -37,7 +55,6 @@ export const mediaAssets = {
   ui: {
     ctaBackground: imageOne,
     ctaBackgroundVideo,
-    promo: couplePortrait,
     login: outdoorCouple,
     menu: heroRing,
     statsBackground: statsBackgroundVideo,

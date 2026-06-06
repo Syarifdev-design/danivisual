@@ -1,144 +1,65 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Globe } from "lucide-react";
-
-declare global {
-  interface Window {
-    googleTranslateElementInit?: () => void;
-    google?: {
-      translate?: {
-        TranslateElement?: new (
-          options: { pageLanguage: string; includedLanguages: string; autoDisplay: boolean },
-          element: string
-        ) => void;
-      };
-    };
-  }
-}
-
-const GOOGLE_TRANSLATE_ELEMENT_ID = "google_translate_element";
-const LANGUAGE_STORAGE_KEY = "danivisual_language";
-export const LANGUAGE_CHANGE_EVENT = "danivisual-language-change";
-
-function setTranslateCookie(lang: "id" | "en") {
-  const value = lang === "id" ? "/id/id" : "/id/en";
-  document.cookie = `googtrans=${value}; path=/`;
-  document.cookie = `googtrans=${value}; path=/; domain=${window.location.hostname}`;
-}
-
-function triggerGoogleTranslate(lang: "id" | "en", attempt = 0) {
-  const combo = document.querySelector<HTMLSelectElement>(".goog-te-combo");
-
-  if (combo) {
-    combo.value = lang;
-    combo.dispatchEvent(new Event("change"));
-    return;
-  }
-
-  if (attempt < 20) {
-    window.setTimeout(() => triggerGoogleTranslate(lang, attempt + 1), 250);
-  }
-}
+import { useLanguage } from "../contexts/LanguageContext";
 
 export default function FloatingWhatsApp() {
-  const [language, setLanguage] = useState<"ID" | "EN">(
-    () => (localStorage.getItem(LANGUAGE_STORAGE_KEY) as "ID" | "EN") || "ID"
-  );
+  const { language, setLanguage, t } = useLanguage();
   const [showLangMenu, setShowLangMenu] = useState(false);
-  const [isTranslating, setIsTranslating] = useState(false);
 
-  const toggleLanguage = (lang: "ID" | "EN") => {
-    const translateLang = lang === "ID" ? "id" : "en";
-
+  const chooseLanguage = (lang: "ID" | "EN") => {
     setLanguage(lang);
     setShowLangMenu(false);
-    setIsTranslating(true);
-    localStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
-    window.dispatchEvent(new CustomEvent(LANGUAGE_CHANGE_EVENT, { detail: lang }));
-    setTranslateCookie(translateLang);
-    triggerGoogleTranslate(translateLang);
-    window.setTimeout(() => setIsTranslating(false), 1600);
   };
-
-  useEffect(() => {
-    if (!document.getElementById(GOOGLE_TRANSLATE_ELEMENT_ID)) {
-      const container = document.createElement("div");
-      container.id = GOOGLE_TRANSLATE_ELEMENT_ID;
-      container.className = "google-translate-root";
-      document.body.appendChild(container);
-    }
-
-    window.googleTranslateElementInit = () => {
-      if (!window.google?.translate?.TranslateElement) return;
-      new window.google.translate.TranslateElement(
-        {
-          pageLanguage: "id",
-          includedLanguages: "id,en",
-          autoDisplay: false,
-        },
-        GOOGLE_TRANSLATE_ELEMENT_ID
-      );
-      triggerGoogleTranslate(language === "ID" ? "id" : "en");
-    };
-
-    if (!document.querySelector<HTMLScriptElement>('script[src*="translate_a/element.js"]')) {
-      const script = document.createElement("script");
-      script.src = "//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit";
-      script.async = true;
-      document.body.appendChild(script);
-    } else {
-      triggerGoogleTranslate(language === "ID" ? "id" : "en");
-    }
-  }, []);
 
   return (
     <div className="fixed bottom-5 right-4 z-50 flex flex-col gap-2 items-end lg:bottom-6 lg:right-6 lg:gap-3">
-      {/* Language Switcher */}
       <div className="relative notranslate" translate="no">
         <button
           onClick={() => setShowLangMenu(!showLangMenu)}
           className="notranslate bg-white hover:bg-background-soft border border-border-line rounded-full px-3 py-2 shadow-lg hover:shadow-xl transition-all flex items-center gap-2 text-xs font-medium tracking-[0.16em] lg:px-4 lg:py-2.5 lg:text-sm"
-          aria-label="Change website language"
+          aria-label={t({ ID: "Ubah bahasa website", EN: "Change website language" })}
           translate="no"
         >
           <Globe size={16} className="text-premium-beige" />
           <span className="notranslate text-foreground" translate="no">
-            {isTranslating ? "..." : language}
+            {language}
           </span>
         </button>
 
         {showLangMenu && (
-          <div className="notranslate absolute bottom-full right-0 mb-2 bg-white border border-border-line rounded-sm shadow-xl overflow-hidden min-w-[100px]" translate="no">
+          <div className="notranslate absolute bottom-full right-0 mb-2 min-w-[180px] overflow-hidden rounded-sm border border-border-line bg-white shadow-xl" translate="no">
             <button
-              onClick={() => toggleLanguage("ID")}
-              className={`w-full px-4 py-2.5 text-sm text-left transition-colors ${
+              onClick={() => chooseLanguage("ID")}
+              className={`w-full px-4 py-3 text-left text-sm transition-colors ${
                 language === "ID"
-                  ? "bg-premium-beige/10 text-premium-beige font-medium"
+                  ? "bg-premium-beige/10 font-medium text-premium-beige"
                   : "text-foreground hover:bg-background-soft"
               }`}
             >
-              Indonesia
+              Bahasa Indonesia
+              <span className="mt-0.5 block text-[11px] text-foreground-secondary">Hangat, personal, dan premium.</span>
             </button>
             <button
-              onClick={() => toggleLanguage("EN")}
-              className={`w-full px-4 py-2.5 text-sm text-left transition-colors ${
+              onClick={() => chooseLanguage("EN")}
+              className={`w-full border-t border-border-line px-4 py-3 text-left text-sm transition-colors ${
                 language === "EN"
-                  ? "bg-premium-beige/10 text-premium-beige font-medium"
+                  ? "bg-premium-beige/10 font-medium text-premium-beige"
                   : "text-foreground hover:bg-background-soft"
               }`}
             >
               English
+              <span className="mt-0.5 block text-[11px] text-foreground-secondary">Editorial, refined, and client-ready.</span>
             </button>
           </div>
         )}
       </div>
 
-      {/* WhatsApp Button */}
       <a
         href="https://wa.me/6282337279636"
         target="_blank"
         rel="noopener noreferrer"
         className="group relative bg-white hover:bg-background-soft border border-border-line rounded-full p-2.5 shadow-lg hover:shadow-xl transition-all hover:scale-105 lg:p-3"
-        aria-label="Chat on WhatsApp"
+        aria-label={t({ ID: "Chat melalui WhatsApp", EN: "Chat on WhatsApp" })}
       >
         <div className="w-9 h-9 lg:w-10 lg:h-10 flex items-center justify-center transition-transform group-hover:rotate-12">
           <svg
@@ -154,9 +75,8 @@ export default function FloatingWhatsApp() {
           </svg>
         </div>
 
-        {/* Tooltip */}
         <div className="absolute right-full mr-3 top-1/2 -translate-y-1/2 bg-dark-premium text-white px-3 py-2 rounded-sm text-xs whitespace-nowrap opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none shadow-lg">
-          Chat via WhatsApp
+          {t({ ID: "Konsultasi via WhatsApp", EN: "Concierge on WhatsApp" })}
           <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-t-4 border-t-transparent border-b-4 border-b-transparent border-l-4 border-l-dark-premium"></div>
         </div>
       </a>

@@ -1,85 +1,57 @@
-import { useEffect, useMemo, useState } from "react";
 import { Outlet, useLocation } from "react-router";
+import { useEffect } from "react";
 import Navbar from "../components/Navbar";
 import Footer from "../components/Footer";
 import FloatingWhatsApp from "../components/FloatingWhatsApp";
-import PromoPopup from "../components/PromoPopup";
-import { mediaAssets } from "../data/mediaAssets";
+import { useContent } from "../contexts/ContentContext";
 
-const PROMO_SESSION_KEY = "danivisual_promo_seen_this_session";
+const seoPageMap: Array<[RegExp, string]> = [
+  [/^\/$/, "home"],
+  [/^\/portfolio/, "portfolio"],
+  [/^\/services/, "services_page"],
+  [/^\/packages|^\/checkout/, "packages"],
+  [/^\/faq/, "faq"],
+  [/^\/about/, "about"],
+  [/^\/contact/, "contact"],
+  [/^\/login|^\/register/, "auth"],
+];
 
-const promoContent = {
-  label: "PROMO TERBATAS",
-  title: "Abadikan Momen Terbaik Anda Bersama Danivisual",
-  subtitle: "Nikmati penawaran khusus untuk booking wedding, prewedding, studio, atau event bulan ini.",
-  image: mediaAssets.ui.promo,
-  benefits: [
-    "Konsultasi konsep eksklusif",
-    "Foto pilihan dikirim H+2",
-    "Akses private client gallery",
-    "Pilihan album premium",
-  ],
-  primaryButtonText: "Konsultasi Sekarang",
-  primaryButtonUrl: "/packages",
-  secondaryButtonText: "Lihat Paket",
-  secondaryButtonUrl: "/packages",
-  note: "Slot terbatas bulan ini. Tanggal akan dikunci setelah DP terverifikasi.",
-};
+function setMeta(name: string, content: string, property = false) {
+  const attr = property ? "property" : "name";
+  let element = document.head.querySelector<HTMLMetaElement>(`meta[${attr}="${name}"]`);
+  if (!element) {
+    element = document.createElement("meta");
+    element.setAttribute(attr, name);
+    document.head.appendChild(element);
+  }
+  element.content = content;
+}
 
 export default function RootLayout() {
   const location = useLocation();
+  const { content, getImage } = useContent();
   const isLoginPage = location.pathname === "/login";
-  const [showPromoPopup, setShowPromoPopup] = useState(false);
-
-  const shouldAllowPromoPopup = useMemo(() => {
-    const excludedPrefixes = [
-      "/login",
-      "/checkout",
-      "/review",
-      "/booking-review",
-      "/booking-success",
-      "/customer",
-      "/my-booking",
-      "/progress",
-      "/dashboard",
-    ];
-
-    if (excludedPrefixes.some((path) => location.pathname.startsWith(path))) {
-      return false;
-    }
-
-    const allowedRoutes = ["/", "/home", "/portfolio", "/services", "/about", "/faq", "/contact", "/booking", "/packages"];
-    return allowedRoutes.some((path) => location.pathname === path || location.pathname.startsWith(`${path}/`));
-  }, [location.pathname]);
+  const pageId = seoPageMap.find(([pattern]) => pattern.test(location.pathname))?.[1] || "home";
+  const seo = content.find(menu => menu.id === pageId && menu.status !== "draft")?.seo;
 
   useEffect(() => {
-    const navigation = performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined;
-    if (navigation?.type === "reload") {
-      sessionStorage.removeItem(PROMO_SESSION_KEY);
+    if (!seo) return;
+    document.title = seo.title;
+    setMeta("description", seo.description);
+    if (seo.keywords) setMeta("keywords", seo.keywords);
+    setMeta("og:title", seo.title, true);
+    setMeta("og:description", seo.description, true);
+    const ogImage = seo.ogImage ? getImage(seo.ogImage, seo.ogImage) : "";
+    if (ogImage) setMeta("og:image", ogImage, true);
+
+    let canonical = document.head.querySelector<HTMLLinkElement>('link[rel="canonical"]');
+    if (!canonical) {
+      canonical = document.createElement("link");
+      canonical.rel = "canonical";
+      document.head.appendChild(canonical);
     }
-  }, []);
-
-  useEffect(() => {
-    if (!shouldAllowPromoPopup) {
-      setShowPromoPopup(false);
-      return;
-    }
-
-    if (sessionStorage.getItem(PROMO_SESSION_KEY) === "true") {
-      return;
-    }
-
-    const timer = window.setTimeout(() => {
-      setShowPromoPopup(true);
-    }, 1000);
-
-    return () => window.clearTimeout(timer);
-  }, [shouldAllowPromoPopup, location.pathname]);
-
-  const closePromoPopup = () => {
-    sessionStorage.setItem(PROMO_SESSION_KEY, "true");
-    setShowPromoPopup(false);
-  };
+    canonical.href = `${window.location.origin}${seo.canonicalPath || location.pathname}`;
+  }, [getImage, location.pathname, seo]);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -89,7 +61,6 @@ export default function RootLayout() {
       </main>
       {!isLoginPage && <Footer />}
       {!isLoginPage && <FloatingWhatsApp />}
-      <PromoPopup isOpen={showPromoPopup} onClose={closePromoPopup} {...promoContent} />
     </div>
   );
 }

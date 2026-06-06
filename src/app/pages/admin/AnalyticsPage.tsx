@@ -125,22 +125,6 @@ export default function AnalyticsPage() {
 
   return (
     <div className="space-y-6">
-      {/* Demo Banner */}
-      <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-        <div className="flex items-start gap-3">
-          <div className="rounded-lg bg-amber-100 p-2">
-            <BarChart3 size={20} className="text-amber-600" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2">
-              <h3 className="font-semibold text-amber-800">Demo / Coming Soon</h3>
-            </div>
-            <p className="mt-1 text-sm text-amber-700">
-              Traffic analytics belum aktif. Integrasi Google Analytics atau sistem tracking akan tersedia setelah dikonfigurasi.</p>
-          </div>
-        </div>
-      </div>
-
       {/* Page Header */}
       <div className="rounded-2xl border border-premium-beige/25 bg-white/86 p-5 shadow-[0_18px_60px_rgba(40,28,16,0.08)] backdrop-blur sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
@@ -148,7 +132,7 @@ export default function AnalyticsPage() {
             <p className="text-xs uppercase tracking-[0.24em] text-premium-beige">Dashboard</p>
             <h2 className="mt-2 text-3xl" style={{ fontFamily: "var(--font-heading)" }}>Analytics</h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-foreground-secondary">
-              Pantau performa website dan bisnis melalui data analytics. Fitur real-time memerlukan integrasi Google Analytics.
+              Pantau performa website dan bisnis melalui data analytics.
             </p>
           </div>
         </div>
@@ -317,16 +301,11 @@ export default function AnalyticsPage() {
       </div>
 
       {/* Info */}
-      <div className="rounded-xl border border-dashed border-premium-beige/40 bg-white/65 p-5">
-        <div className="flex items-start gap-3">
-          <BarChart3 size={18} className="mt-0.5 text-amber-500" />
-          <div>
-            <p className="text-sm font-medium text-amber-700">Demo Data</p>
-            <p className="mt-0.5 text-xs text-amber-600">
-              Chart di atas adalah simulasi untuk preview. Hubungkan dengan Google Analytics atau sistem tracking untuk data real.
-            </p>
-          </div>
-        </div>
+      <div className="rounded-2xl border border-dashed border-premium-beige/40 bg-white/65 p-5">
+        <p className="text-sm text-foreground-secondary">
+          <strong>Catatan:</strong> Data analytics di bawah ini adalah simulasi untuk demo. Untuk production,
+          hubungkan dengan Google Analytics atau sistem tracking yang sebenarnya.
+        </p>
       </div>
     </div>
   );

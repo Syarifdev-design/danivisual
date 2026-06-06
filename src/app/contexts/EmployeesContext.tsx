@@ -16,7 +16,6 @@ export interface Employee {
   email: string;
   phone: string;
   role: EmployeeRole;
-  position?: string;
   isActive: boolean;
   joinDate: string;
   notes: string;
@@ -78,51 +77,10 @@ function saveToStorage<T>(key: string, data: T[]): void {
   localStorage.setItem(key, JSON.stringify(data));
 }
 
-function createEmployeeFromDefault(emp: Omit<Employee, "id" | "createdAt" | "updatedAt">, now: string): Employee {
-  const defaultEmployee = emp as Omit<Employee, "createdAt" | "updatedAt"> & { id?: string };
-  return {
-    ...defaultEmployee,
-    id: defaultEmployee.id || generateId(),
-    createdAt: now,
-    updatedAt: now,
-  };
-}
-
-function mergeDefaultEmployees(stored: Employee[]): Employee[] {
-  const now = new Date().toISOString();
-  const defaultsByEmail = new Map(
-    DEFAULT_EMPLOYEES
-      .map((emp) => emp as Omit<Employee, "createdAt" | "updatedAt"> & { id?: string })
-      .filter((emp) => Boolean(emp.id))
-      .map((emp) => [emp.email.toLowerCase(), emp])
-  );
-  const normalizedStored = stored.map((employee) => {
-    const defaultEmployee = defaultsByEmail.get(employee.email.toLowerCase());
-    return defaultEmployee
-      ? { ...employee, id: defaultEmployee.id || employee.id, userId: employee.userId || defaultEmployee.userId, user_id: employee.user_id || defaultEmployee.user_id }
-      : employee;
-  });
-  const byId = new Set(normalizedStored.map((employee) => employee.id));
-  const byEmail = new Set(normalizedStored.map((employee) => employee.email.toLowerCase()));
-  const missingDefaults = DEFAULT_EMPLOYEES
-    .filter((emp) => {
-      const defaultEmployee = emp as Omit<Employee, "createdAt" | "updatedAt"> & { id?: string };
-      return !byId.has(defaultEmployee.id || "") && !byEmail.has(defaultEmployee.email.toLowerCase());
-    })
-    .map((emp) => createEmployeeFromDefault(emp, now));
-
-  return missingDefaults.length > 0 ? [...normalizedStored, ...missingDefaults] : normalizedStored;
-}
-
 export function EmployeesProvider({ children }: { children: ReactNode }) {
-  // Initialize with DEFAULT_EMPLOYEES if localStorage is empty, otherwise load from localStorage
-  const [employees, setEmployees] = useState<Employee[]>(() => {
-    const stored = loadFromStorage<Employee[]>(EMPLOYEES_KEY, []);
-    if (stored && stored.length > 0) return mergeDefaultEmployees(stored);
-    // Use DEFAULT_EMPLOYEES as initial data with generated IDs
-    const now = new Date().toISOString();
-    return DEFAULT_EMPLOYEES.map((emp) => createEmployeeFromDefault(emp, now));
-  });
+  const [employees, setEmployees] = useState<Employee[]>(() =>
+    loadFromStorage(EMPLOYEES_KEY, [])
+  );
   const [attendance, setAttendance] = useState<Attendance[]>(() =>
     loadFromStorage(ATTENDANCE_KEY, [])
   );
@@ -277,74 +235,6 @@ export const ATTENDANCE_STATUS_LABELS: Record<AttendanceStatus, string> = {
 // ============================================================================
 
 export const DEFAULT_EMPLOYEES: Omit<Employee, "id" | "createdAt" | "updatedAt">[] = [
-  // Test users for development (use id matching AuthContext.employeeId)
-  {
-    id: "dev-employee-admin",
-    name: "Admin Sample",
-    email: "admin@danivisual.test",
-    phone: "081900000001",
-    role: "admin",
-    position: "Admin",
-    isActive: true,
-    joinDate: "2024-01-01",
-    notes: "Admin sample account",
-  },
-  {
-    id: "dev-employee-finance",
-    name: "Finance Sample",
-    email: "finance@danivisual.test",
-    phone: "081900000002",
-    role: "finance",
-    position: "Finance",
-    isActive: true,
-    joinDate: "2024-01-01",
-    notes: "Finance sample account",
-  },
-  {
-    id: "dev-employee-editor",
-    name: "Editor Sample",
-    email: "editor@danivisual.test",
-    phone: "081900000003",
-    role: "editor",
-    position: "Editor",
-    isActive: true,
-    joinDate: "2024-01-01",
-    notes: "Editor sample account",
-  },
-  {
-    id: "dev-employee-photographer",
-    name: "Photographer Sample",
-    email: "photographer@danivisual.test",
-    phone: "081900000004",
-    role: "photographer",
-    position: "Photographer",
-    isActive: true,
-    joinDate: "2024-01-01",
-    notes: "Photographer sample account",
-  },
-  {
-    id: "dev-employee-videographer",
-    name: "Videographer Sample",
-    email: "videographer@danivisual.test",
-    phone: "081900000005",
-    role: "videographer",
-    position: "Videographer",
-    isActive: true,
-    joinDate: "2024-01-01",
-    notes: "Videographer sample account",
-  },
-  {
-    id: "dev-employee-staff",
-    name: "Staff Sample",
-    email: "staff@danivisual.test",
-    phone: "081900000006",
-    role: "staff",
-    position: "Staff",
-    isActive: true,
-    joinDate: "2024-01-01",
-    notes: "Staff sample account",
-  },
-  // Production employees
   {
     name: "Ahmad Photographer",
     email: "ahmad@danivisual.app",

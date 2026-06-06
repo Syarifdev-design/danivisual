@@ -96,12 +96,12 @@ const mapRowToTask = (row: Record<string, unknown>): StaffTask => ({
   id: row.id as string,
   title: row.title as string,
   description: (row.description as string) || "",
-  assignedToId: row.assigned_to as string,
+  assignedToId: row.assigned_to_id as string,
   assignedToName: (row.assigned_to_name as string) || "",
-  assignedById: (row.assigned_by as string) || "",
+  assignedById: row.assigned_by_id as string,
   assignedByName: (row.assigned_by_name as string) || "",
   bookingId: row.booking_id as string | undefined,
-  bookingOrderNumber: (row.booking_order_number as string) || undefined,
+  bookingOrderNumber: row.booking_order_number as string | undefined,
   productionRecordId: row.production_record_id as string | undefined,
   priority: (row.priority as TaskPriority) || "medium",
   status: (row.status as TaskStatus) || "todo",
@@ -122,9 +122,9 @@ const mapToDbRow = (task: Partial<StaffTask>): Record<string, unknown> => {
   const row: Record<string, unknown> = {};
   if (task.title !== undefined) row.title = task.title;
   if (task.description !== undefined) row.description = task.description;
-  if (task.assignedToId !== undefined) row.assigned_to = task.assignedToId;
+  if (task.assignedToId !== undefined) row.assigned_to_id = task.assignedToId;
   if (task.assignedToName !== undefined) row.assigned_to_name = task.assignedToName;
-  if (task.assignedById !== undefined) row.assigned_by = task.assignedById;
+  if (task.assignedById !== undefined) row.assigned_by_id = task.assignedById;
   if (task.assignedByName !== undefined) row.assigned_by_name = task.assignedByName;
   if (task.bookingId !== undefined) row.booking_id = task.bookingId;
   if (task.bookingOrderNumber !== undefined) row.booking_order_number = task.bookingOrderNumber;
@@ -247,7 +247,11 @@ export const createTask = async (
       try {
         const { data: dbData, error } = await client
           .from("staff_tasks")
-          .insert(mapToDbRow(newTask))
+          .insert({
+            ...mapToDbRow(newTask),
+            assigned_by_id: newTask.assignedById,
+            assigned_by_name: newTask.assignedByName,
+          })
           .select()
           .single();
 

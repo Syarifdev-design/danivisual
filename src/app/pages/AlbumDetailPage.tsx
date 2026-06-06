@@ -1,33 +1,26 @@
-import { useParams, Link } from "react-router";
+import { Link, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
-import { mediaAssets } from "../data/mediaAssets";
+import { useAdmin } from "../contexts/AdminContext";
+import { useContent } from "../contexts/ContentContext";
+import { useLanguage } from "../contexts/LanguageContext";
+import { findPortfolioAlbum, getPortfolioAlbums } from "../data/portfolioAlbums";
 
 export default function AlbumDetailPage() {
   const { albumId } = useParams();
-
-  const album = {
-    category: "WEDDING",
-    title: "Dani & Sinta",
-    couple: "Dani & Sinta",
-    location: "Four Seasons Jakarta",
-    date: "20 Januari 2026",
-    coverImage: mediaAssets.hero.akad,
-    story:
-      "Pernikahan Dani dan Sinta adalah perayaan cinta yang intim dan penuh kehangatan. Dikelilingi oleh keluarga dan teman terdekat, mereka berjanji untuk saling mendukung dalam setiap langkah kehidupan.",
-  };
-
-  const galleryImages = [
-    mediaAssets.wedding.couplePortrait,
-    mediaAssets.hero.ring,
-    mediaAssets.wedding.ceremony,
-    mediaAssets.wedding.table,
-    mediaAssets.editorial.outdoorCouple,
-    mediaAssets.wedding.family,
-  ];
+  const { albums } = useAdmin();
+  const { getField } = useContent();
+  const { t } = useLanguage();
+  const portfolioAlbums = getPortfolioAlbums(albums);
+  const album = findPortfolioAlbum(albumId, albums);
+  const relatedAlbums = portfolioAlbums
+    .filter((item) => item.category === album.category && item.id !== album.id)
+    .slice(0, 3);
+  const backLabel = getField("portfolio", "labels", "portfolio_back", t({ ID: "Kembali ke Portofolio", EN: "Back to Portfolio" }));
+  const storyTitle = getField("portfolio", "labels", "portfolio_story_title", t({ ID: "Cerita Mereka", EN: "The Story" }));
+  const relatedTitle = getField("portfolio", "labels", "portfolio_related_title", t({ ID: "Album Serupa", EN: "Related Albums" }));
 
   return (
     <div className="min-h-screen">
-      {/* Back Button */}
       <div className="py-5 px-5 lg:px-8 bg-background border-b border-border-line">
         <div className="max-w-7xl mx-auto">
           <Link
@@ -35,15 +28,14 @@ export default function AlbumDetailPage() {
             className="inline-flex items-center text-sm text-foreground-secondary hover:text-foreground transition"
           >
             <ArrowLeft size={16} className="mr-2" />
-            Back to Portfolio
+            {backLabel}
           </Link>
         </div>
       </div>
 
-      {/* Hero Album */}
       <section className="relative h-[78svh] lg:h-[70vh] overflow-hidden">
         <img
-          src={album.coverImage}
+          src={album.image}
           alt={album.title}
           className="w-full h-full object-cover"
         />
@@ -51,7 +43,7 @@ export default function AlbumDetailPage() {
         <div className="absolute bottom-0 left-0 right-0 pb-14 px-5 lg:px-8 text-white">
           <div className="max-w-7xl mx-auto">
             <span className="text-xs tracking-widest uppercase mb-4 block">
-              {album.category}
+              {album.category.replaceAll("-", " ")}
             </span>
             <h1
               className="text-[44px] leading-none lg:text-6xl mb-4"
@@ -69,14 +61,13 @@ export default function AlbumDetailPage() {
         </div>
       </section>
 
-      {/* Story */}
       <section className="py-14 px-5 lg:py-16 lg:px-8 bg-background">
         <div className="max-w-4xl mx-auto">
           <h2
             className="text-3xl mb-6"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            The Story
+            {storyTitle}
           </h2>
           <p className="text-foreground-secondary leading-relaxed text-lg">
             {album.story}
@@ -84,15 +75,14 @@ export default function AlbumDetailPage() {
         </div>
       </section>
 
-      {/* Gallery */}
       <section className="py-12 px-5 lg:py-16 lg:px-8 bg-background-soft">
         <div className="max-w-7xl mx-auto">
           <div className="grid grid-cols-1 gap-5 md:grid-cols-2 lg:grid-cols-3">
-            {galleryImages.map((image, index) => (
-              <div key={index} className="overflow-hidden rounded-sm">
+            {album.gallery.map((image, index) => (
+              <div key={`${album.id}-${index}`} className="overflow-hidden rounded-sm">
                 <img
                   src={image}
-                  alt={`Gallery ${index + 1}`}
+                  alt={`${album.title} gallery ${index + 1}`}
                   loading="lazy"
                   className="w-full h-auto hover:scale-105 transition-transform duration-700"
                 />
@@ -102,40 +92,35 @@ export default function AlbumDetailPage() {
         </div>
       </section>
 
-      {/* Related Albums */}
       <section className="py-16 px-5 lg:py-20 lg:px-8 bg-background">
         <div className="max-w-7xl mx-auto">
           <h2
             className="text-3xl mb-8 text-center"
             style={{ fontFamily: "var(--font-heading)" }}
           >
-            Related Albums
+            {relatedTitle}
           </h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {[
-              mediaAssets.wedding.ringPortrait,
-              mediaAssets.editorial.outdoorCouple,
-              mediaAssets.wedding.group,
-            ].map((image, i) => (
+            {relatedAlbums.map((related) => (
               <Link
-                key={i}
-                to={`/portfolio/${i}`}
+                key={related.id}
+                to={`/portfolio/${related.id}`}
                 className="group bg-white border border-border-line rounded-sm overflow-hidden hover:shadow-lg transition-all"
               >
                 <div className="aspect-[4/5] overflow-hidden">
                   <img
-                    src={image}
-                    alt={`Album ${i}`}
+                    src={related.image}
+                    alt={related.title}
                     loading="lazy"
                     className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
                   />
                 </div>
                 <div className="p-4">
                   <span className="text-xs tracking-widest text-foreground-secondary uppercase">
-                    Wedding
+                    {related.category.replaceAll("-", " ")}
                   </span>
                   <h3 className="text-lg mt-1" style={{ fontFamily: "var(--font-heading)" }}>
-                    Album Title
+                    {related.couple}
                   </h3>
                 </div>
               </Link>

@@ -296,7 +296,6 @@ export const submitBooking = async (
       paid_amount: 0,
       remaining_amount: totalAmount,
       status: "pending",
-      is_active: true,
       notes: state.eventData.adminNotes || "",
     });
 
@@ -338,20 +337,9 @@ export const updateBookingStatus = async (
     const client = getSupabaseClient();
     if (!client) return false;
 
-    const timestamp = new Date().toISOString();
-    const updates: Record<string, unknown> = {
-      status,
-      updated_at: timestamp,
-    };
-
-    if (status === "cancelled") {
-      updates.is_active = false;
-      updates.archived_at = timestamp;
-    }
-
     const { error } = await client
       .from("bookings")
-      .update(updates)
+      .update({ status, updated_at: new Date().toISOString() })
       .eq("order_number", orderNumber);
 
     if (error) {
@@ -364,13 +352,6 @@ export const updateBookingStatus = async (
 
   // Fallback: localStorage - handled by adminService
   return false;
-};
-
-/**
- * Cancel/archive booking by order number without deleting historical data.
- */
-export const cancelBooking = async (orderNumber: string): Promise<boolean> => {
-  return updateBookingStatus(orderNumber, "cancelled");
 };
 
 /**
@@ -443,14 +424,8 @@ export const uploadPaymentProof = async (
                 .getPublicUrl(fileName);
 
               // Create payment record
-              const { data: bookingData } = await client
-                .from("bookings")
-                .select("id")
-                .eq("order_number", orderNumber)
-                .maybeSingle();
-
               const { error: paymentError } = await client.from("payments").insert({
-                booking_id: bookingData?.id || null,
+                booking_id: orderNumber,
                 booking_order_number: orderNumber,
                 customer_name: "",
                 amount: 500000, // DP amount

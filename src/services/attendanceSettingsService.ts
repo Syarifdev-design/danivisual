@@ -22,7 +22,6 @@ export interface AttendanceSettings {
 
 const STORAGE_KEY = "danivisual_attendance_settings";
 const SETTINGS_ID = "default";
-const DEFAULT_REQUIRED_ATTENDANCE_ROLES: AttendanceRole[] = ["admin", "finance", "editor", "photographer", "videographer", "staff"];
 
 export function getDefaultAttendanceSettings(): AttendanceSettings {
   return {
@@ -39,7 +38,7 @@ export function getDefaultAttendanceSettings(): AttendanceSettings {
     workingDays: ["monday", "tuesday", "wednesday", "thursday", "friday", "saturday"],
     autoMarkLate: true,
     autoMarkAbsent: false,
-    requiredAttendanceRoles: DEFAULT_REQUIRED_ATTENDANCE_ROLES,
+    requiredAttendanceRoles: ["staff", "editor", "photographer", "videographer"],
   };
 }
 
@@ -64,10 +63,9 @@ function normalizeSettings(value: Partial<AttendanceSettings> | null | undefined
     ...(value || {}),
     lateToleranceMinutes: Number(value?.lateToleranceMinutes ?? defaults.lateToleranceMinutes),
     workingDays: Array.isArray(value?.workingDays) ? value.workingDays : defaults.workingDays,
-    requiredAttendanceRoles: Array.from(new Set([
-      ...defaults.requiredAttendanceRoles,
-      ...(Array.isArray(value?.requiredAttendanceRoles) ? value.requiredAttendanceRoles : []),
-    ])),
+    requiredAttendanceRoles: Array.isArray(value?.requiredAttendanceRoles)
+      ? value.requiredAttendanceRoles
+      : defaults.requiredAttendanceRoles,
   };
 }
 

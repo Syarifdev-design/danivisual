@@ -1,16 +1,9 @@
 /**
  * KPI Staff Service
  *
- * Menghitung KPI staff berdasarkan attendance_records, staff_tasks, dan kpi_job_assignments.
- * Supabase menjadi sumber utama; localStorage hanya sebagai cache/fallback di DEV.
- *
- * PRODUCTION: Jika Supabase tidak dikonfigurasi, operasi akan gagal dengan error message.
- *
- * Formula:
- * - Attendance Score: 25%
- * - Job Completion Score: 35%
- * - Deadline Score: 25%
- * - Quality Score: 15%
+ * Menghitung KPI staff berdasarkan attendance_records dan staff_tasks.
+ * Supabase menjadi sumber utama, dengan localStorage fallback/cache mengikuti
+ * pola service lain di project.
  */
 
 import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabaseClient";
@@ -79,15 +72,6 @@ export interface KpiBreakdown {
     overdue: number;
     revision: number;
   };
-  jobSummary: {
-    total: number;
-    completed: number;
-    overdue: number;
-    inProgress: number;
-    submitted: number;
-    revision: number;
-    averageQualityScore: number;
-  };
   qualitySummary: {
     averageQualityScore: number;
   };
@@ -115,27 +99,6 @@ interface TaskRow {
   qualityScore: number | null;
 }
 
-interface KpiJobAssignmentRow {
-  id: string;
-  kpiJobId: string;
-  employeeId: string;
-  status: string;
-  deadline: string | null;
-  submittedAt: string | null;
-  completedAt: string | null;
-  qualityScore: number;
-  finalScore: number;
-  completionScore: number;
-  deadlineScore: number;
-}
-
-interface KpiJobRow {
-  id: string;
-  periodMonth: number | null;
-  periodYear: number | null;
-  status: string;
-}
-
 // ============================================================================
 // Constants
 // ============================================================================
@@ -145,8 +108,6 @@ const EMPLOYEES_STORAGE_KEY = "danivisual_employees";
 const ATTENDANCE_STORAGE_KEY = "danivisual_attendance_records";
 const LEGACY_ATTENDANCE_STORAGE_KEY = "danivisual_attendance";
 const TASKS_STORAGE_KEY = "danivisual_staff_tasks";
-const KPI_JOB_ASSIGNMENTS_KEY = "danivisual_kpi_job_assignments";
-const KPI_JOBS_KEY = "danivisual_kpi_jobs";
 const WORKDAY_MINUTES = 8 * 60;
 
 export const KPI_WEIGHTS = {
@@ -209,20 +170,6 @@ function safeRecord(value: unknown): Record<string, unknown> {
 function clampScore(score: number): number {
   if (!Number.isFinite(score)) return 0;
   return Math.min(100, Math.max(0, Math.round(score)));
-}
-
-// PRODUCTION: Ensure Supabase is configured for write operations
-function ensureSupabaseForWrite(): void {
-  if (!isSupabaseConfigured() && !import.meta.env.DEV) {
-    throw new Error("Supabase belum dikonfigurasi. Tidak bisa menyimpan KPI review di production.");
-  }
-}
-
-// PRODUCTION: Log warning for read operations without Supabase
-function warnProductionReadFallback(): void {
-  if (!isSupabaseConfigured() && !import.meta.env.DEV) {
-    console.warn("[KpiService] Supabase tidak dikonfigurasi di production. Data mungkin tidak akurat.");
-  }
 }
 
 function normalizeMonth(month: number): number {
@@ -458,84 +405,6 @@ async function getTasksForEmployee(employeeId: string, month: number, year: numb
     .filter((task) => task.assignedTo === employeeId && isTaskInPeriod(task, month, year));
 }
 
-function mapKpiJobAssignmentRow(rawRow: Record<string, unknown>): KpiJobAssignmentRow {
-  const row = safeRecord(rawRow);
-  return {
-    id: (row.id as string) || "",
-    kpiJobId: (row.kpi_job_id as string) || (row.kpiJobId as string) || "",
-    employeeId: (row.employee_id as string) || (row.employeeId as string) || "",
-    status: ((row.status as string) || "").toLowerCase(),
-    deadline: (row.deadline as string) || null,
-    submittedAt: (row.submitted_at as string) || (row.submittedAt as string) || null,
-    completedAt: (row.approved_at as string) || (row.completed_at as string) || (row.completedAt as string) || null,
-    qualityScore: toNumber(row.quality_score ?? row.qualityScore),
-    finalScore: toNumber(row.final_score ?? row.finalScore),
-    completionScore: toNumber(row.completion_score ?? row.completionScore),
-    deadlineScore: toNumber(row.deadline_score ?? row.deadlineScore),
-  };
-}
-
-function mapKpiJobRow(rawRow: Record<string, unknown>): KpiJobRow {
-  const row = safeRecord(rawRow);
-  return {
-    id: (row.id as string) || "",
-    periodMonth: row.period_month !== undefined ? toNumber(row.period_month) : null,
-    periodYear: row.period_year !== undefined ? toNumber(row.period_year) : null,
-    status: (row.status as string) || "active",
-  };
-}
-
-async function getKpiJobAssignmentsForEmployee(employeeId: string, month: number, year: number): Promise<KpiJobAssignmentRow[]> {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        // First get all KPI jobs for this period that are active
-        const { data: jobsData, error: jobsError } = await client
-          .from("kpi_jobs")
-          .select("id,period_month,period_year,status")
-          .eq("status", "active");
-
-        if (!jobsError && jobsData) {
-          const jobIds = safeArray<Record<string, unknown>>(jobsData)
-            .map(mapKpiJobRow)
-            .filter(job => job.periodMonth === month && job.periodYear === year)
-            .map(job => job.id);
-
-          if (jobIds.length === 0) return [];
-
-          const { data: assignmentsData, error: assignmentsError } = await client
-            .from("kpi_job_assignments")
-            .select("*")
-            .eq("employee_id", employeeId)
-            .in("kpi_job_id", jobIds);
-
-          if (!assignmentsError && assignmentsData) {
-            return safeArray<Record<string, unknown>>(assignmentsData)
-              .map(mapKpiJobAssignmentRow)
-              .filter(a => a.employeeId === employeeId);
-          }
-        }
-      } catch (err) {
-        console.warn("[KpiService] getKpiJobAssignmentsForEmployee Supabase:", err);
-      }
-    }
-  }
-
-  // Fallback to localStorage
-  const jobs = getLocalArray<Record<string, unknown>>(KPI_JOBS_KEY)
-    .map(mapKpiJobRow)
-    .filter(job => job.periodMonth === month && job.periodYear === year && job.status === "active");
-
-  const jobIds = new Set(jobs.map(j => j.id));
-
-  return getLocalArray<Record<string, unknown>>(KPI_JOB_ASSIGNMENTS_KEY)
-    .map(mapKpiJobAssignmentRow)
-    .filter(assignment =>
-      assignment.employeeId === employeeId && jobIds.has(assignment.kpiJobId)
-    );
-}
-
 function isTaskInPeriod(task: TaskRow, month: number, year: number): boolean {
   return (
     isInMonth(task.deadline, month, year) ||
@@ -600,21 +469,6 @@ export function calcTaskCompletionScore(tasks: TaskRow[]): number {
   return clampScore((completed / safeTasks.length) * 100);
 }
 
-/**
- * Calculate job completion score based on KPI job assignments
- * Formula: completed/approved assignments / total assignments in period × 100
- */
-export function calcJobCompletionScore(assignments: KpiJobAssignmentRow[]): number {
-  const safeAssignments = safeArray<KpiJobAssignmentRow>(assignments);
-  if (safeAssignments.length === 0) return 0;
-
-  const completedAssignments = safeAssignments.filter(
-    (a) => a.status === "completed" || a.status === "approved"
-  ).length;
-
-  return clampScore((completedAssignments / safeAssignments.length) * 100);
-}
-
 export function calcDeadlineScore(tasks: TaskRow[]): number {
   const safeTasks = safeArray<TaskRow>(tasks);
   const completedTasks = safeTasks.filter((task) => task.status === "completed" && task.completedAt);
@@ -626,27 +480,6 @@ export function calcDeadlineScore(tasks: TaskRow[]): number {
   }).length;
 
   return clampScore((completedOnTime / completedTasks.length) * 100);
-}
-
-/**
- * Calculate deadline score based on KPI job assignments
- * Formula: approved/completed assignments done before deadline / total completed assignments × 100
- */
-export function calcJobDeadlineScore(assignments: KpiJobAssignmentRow[]): number {
-  const safeAssignments = safeArray<KpiJobAssignmentRow>(assignments);
-  const completedAssignments = safeAssignments.filter(
-    (a) => (a.status === "completed" || a.status === "approved") && a.deadline
-  );
-
-  if (completedAssignments.length === 0) return 0;
-
-  // Use deadlineScore from assignment if available, otherwise calculate
-  const completedOnTime = completedAssignments.filter((a) => {
-    if (!a.deadline || !a.completedAt) return false;
-    return new Date(a.completedAt).getTime() <= new Date(a.deadline).getTime();
-  }).length;
-
-  return clampScore((completedOnTime / completedAssignments.length) * 100);
 }
 
 export function calcQualityScore(tasks: TaskRow[]): number {
@@ -661,31 +494,9 @@ export function calcQualityScore(tasks: TaskRow[]): number {
   return clampScore(avg <= 5 ? avg * 20 : avg);
 }
 
-/**
- * Calculate quality score based on KPI job assignments
- * Formula: average of quality_score from approved/completed assignments
- */
-export function calcJobQualityScore(assignments: KpiJobAssignmentRow[]): number {
-  const safeAssignments = safeArray<KpiJobAssignmentRow>(assignments);
-  const completedAssignments = safeAssignments.filter(
-    (a) => (a.status === "completed" || a.status === "approved") && a.qualityScore > 0
-  );
-
-  if (completedAssignments.length === 0) return 0;
-
-  const avg = completedAssignments.reduce((sum, a) => sum + a.qualityScore, 0) / completedAssignments.length;
-  return clampScore(avg);
-}
-
-function buildKpiBreakdown(
-  attendance: AttendanceRow[],
-  tasks: TaskRow[],
-  jobAssignments: KpiJobAssignmentRow[]
-): KpiBreakdown {
+function buildKpiBreakdown(attendance: AttendanceRow[], tasks: TaskRow[]): KpiBreakdown {
   const safeAttendance = safeArray<AttendanceRow>(attendance);
   const safeTasks = safeArray<TaskRow>(tasks);
-  const safeJobs = safeArray<KpiJobAssignmentRow>(jobAssignments);
-
   const completedTasks = safeTasks.filter((task) => task.status === "completed");
   const now = Date.now();
   const scoredTasks = completedTasks.filter((task) => Number.isFinite(task.qualityScore));
@@ -695,17 +506,6 @@ function buildKpiBreakdown(
           (scoredTasks.reduce((sum, task) => sum + (task.qualityScore || 0), 0) /
             scoredTasks.length) *
             10
-        ) / 10
-      : 0;
-
-  const completedJobs = safeJobs.filter(
-    (a) => a.status === "completed" || a.status === "approved"
-  );
-  const scoredJobs = completedJobs.filter((a) => a.qualityScore > 0);
-  const jobAvgQuality =
-    scoredJobs.length > 0
-      ? Math.round(
-          (scoredJobs.reduce((sum, j) => sum + j.qualityScore, 0) / scoredJobs.length) * 10
         ) / 10
       : 0;
 
@@ -725,18 +525,6 @@ function buildKpiBreakdown(
       }).length,
       revision: safeTasks.filter((task) => task.status === "revision").length,
     },
-    jobSummary: {
-      total: safeJobs.length,
-      completed: completedJobs.length,
-      overdue: safeJobs.filter((a) => {
-        if (a.status === "completed" || a.status === "approved" || a.status === "cancelled" || !a.deadline) return false;
-        return new Date(a.deadline).getTime() < now;
-      }).length,
-      inProgress: safeJobs.filter((a) => a.status === "in_progress").length,
-      submitted: safeJobs.filter((a) => a.status === "submitted").length,
-      revision: safeJobs.filter((a) => a.status === "revision").length,
-      averageQualityScore: jobAvgQuality,
-    },
     qualitySummary: {
       averageQualityScore,
     },
@@ -748,9 +536,6 @@ function buildKpiBreakdown(
 // ============================================================================
 
 export async function getKpiReviews(params: KpiReviewParams = {}): Promise<KpiReview[]> {
-  // PRODUCTION: Warn if Supabase is not configured
-  warnProductionReadFallback();
-
   if (isSupabaseConfigured()) {
     const client = getSupabaseClient();
     if (client) {
@@ -769,14 +554,8 @@ export async function getKpiReviews(params: KpiReviewParams = {}): Promise<KpiRe
           cacheKpiReviews(records);
           return records;
         }
-        if (error) {
-          console.error("[KpiService] getKpiReviews:", error);
-          throw new Error(`Gagal memuat KPI reviews: ${error.message}`);
-        }
       } catch (err) {
-        if (err instanceof Error && err.message.includes("Gagal")) throw err;
-        console.error("[KpiService] getKpiReviews:", err);
-        throw new Error("Gagal memuat KPI reviews. Silakan coba lagi.");
+        console.warn("[KpiService] getKpiReviews:", err);
       }
     }
   }
@@ -807,39 +586,15 @@ export async function calculateEmployeeKpi(
 ): Promise<KpiReview> {
   const employees = await getEmployees();
   const employee = employees.find((item) => item.id === employeeId);
-  const [attendance, tasks, jobAssignments] = await Promise.all([
+  const [attendance, tasks] = await Promise.all([
     getAttendanceForEmployee(employeeId, month, year),
     getTasksForEmployee(employeeId, month, year),
-    getKpiJobAssignmentsForEmployee(employeeId, month, year),
   ]);
 
-  // Calculate attendance score (always from attendance records)
   const attendanceScore = calcAttendanceScore(attendance, month, year);
-
-  // Check if we have KPI job assignments for this period
-  const hasKpiJobs = jobAssignments.length > 0;
-
-  let taskCompletionScore: number;
-  let deadlineScore: number;
-  let qualityScore: number;
-
-  if (hasKpiJobs) {
-    // Priority 1: Use KPI Job assignments
-    taskCompletionScore = calcJobCompletionScore(jobAssignments);
-    deadlineScore = calcJobDeadlineScore(jobAssignments);
-    qualityScore = calcJobQualityScore(jobAssignments);
-  } else if (tasks.length > 0) {
-    // Priority 2: Fallback to staff_tasks if no KPI jobs
-    taskCompletionScore = calcTaskCompletionScore(tasks);
-    deadlineScore = calcDeadlineScore(tasks);
-    qualityScore = calcQualityScore(tasks);
-  } else {
-    // No data available
-    taskCompletionScore = 0;
-    deadlineScore = 0;
-    qualityScore = 0;
-  }
-
+  const taskCompletionScore = calcTaskCompletionScore(tasks);
+  const deadlineScore = calcDeadlineScore(tasks);
+  const qualityScore = calcQualityScore(tasks);
   const finalScore = calcFinalScore(
     attendanceScore,
     taskCompletionScore,
@@ -871,13 +626,12 @@ export async function getKpiBreakdown(
   month: number,
   year: number
 ): Promise<KpiBreakdown> {
-  const [attendance, tasks, jobAssignments] = await Promise.all([
+  const [attendance, tasks] = await Promise.all([
     getAttendanceForEmployee(employeeId, month, year),
     getTasksForEmployee(employeeId, month, year),
-    getKpiJobAssignmentsForEmployee(employeeId, month, year),
   ]);
 
-  return buildKpiBreakdown(attendance, tasks, jobAssignments);
+  return buildKpiBreakdown(attendance, tasks);
 }
 
 export async function calculateAllEmployeesKpi(month: number, year: number): Promise<KpiReview[]> {
@@ -922,7 +676,6 @@ export async function upsertKpiReview(data: UpsertKpiReviewData): Promise<KpiRev
     updatedAt: data.updatedAt || now,
   };
 
-  // PRODUCTION: Supabase is REQUIRED for write operations
   if (isSupabaseConfigured()) {
     const client = getSupabaseClient();
     if (client) {
@@ -940,20 +693,12 @@ export async function upsertKpiReview(data: UpsertKpiReviewData): Promise<KpiRev
           cacheKpiReviews([saved]);
           return saved;
         }
-        if (error) {
-          console.error("[KpiService] upsertKpiReview:", error);
-          throw new Error(`Gagal menyimpan KPI review: ${error.message}`);
-        }
       } catch (err) {
-        if (err instanceof Error && err.message.includes("Gagal")) throw err;
-        console.error("[KpiService] upsertKpiReview:", err);
-        throw new Error("Gagal menyimpan KPI review. Silakan coba lagi.");
+        console.warn("[KpiService] upsertKpiReview:", err);
       }
     }
   }
 
-  // DEV-ONLY: localStorage fallback for development
-  ensureSupabaseForWrite();
   const stored = getLocalArray<KpiReview>(KPI_STORAGE_KEY);
   const existingIndex = stored.findIndex(
     (item) =>
@@ -1020,7 +765,6 @@ export async function saveKpi(kpi: KpiReview): Promise<KpiReview> {
 }
 
 export async function deleteKpi(employeeId: string, year: number, month: number): Promise<void> {
-  // PRODUCTION: Supabase is REQUIRED for delete operations
   if (isSupabaseConfigured()) {
     const client = getSupabaseClient();
     if (client) {
@@ -1032,14 +776,11 @@ export async function deleteKpi(employeeId: string, year: number, month: number)
           .eq("period_year", year)
           .eq("period_month", month);
       } catch (err) {
-        console.error("[KpiService] deleteKpi:", err);
-        throw new Error("Gagal menghapus KPI review. Silakan coba lagi.");
+        console.warn("[KpiService] deleteKpi:", err);
       }
     }
   }
 
-  // DEV-ONLY: localStorage fallback
-  ensureSupabaseForWrite();
   const stored = getLocalArray<KpiReview>(KPI_STORAGE_KEY).filter(
     (item) => !(item.employeeId === employeeId && item.year === year && item.month === month)
   );

@@ -37,7 +37,7 @@ const placeholderDescriptions: Record<string, string> = {
   Packages: "Manage package categories, tiers, service types, benefits, and pricing.",
   Bookings: "Review reservations, client details, event schedule, and admin notes.",
   Payments: "Verify deposits and settlement proofs with minimal payment status tracking.",
-  Production: "Kelola project produksi, tugas staff, deadline, dan progres delivery dalam satu workflow terpusat.",
+  Production: "Track sorting, editing, printing, finishing, and delivery stages.",
   Customers: "Manage client records, contacts, booking history, and notes.",
   Employees: "Manage team members, roles, assignments, and production availability.",
   Attendance: "Review team attendance and field schedules.",
@@ -70,7 +70,7 @@ const ROUTE_TO_PAGE: Record<string, string> = {
 };
 
 export default function AdminPanel() {
-  const { isAuthenticated, isLoading, user, logout } = useAuth();
+  const { isAuthenticated, user, logout } = useAuth();
   const location = useLocation();
   const navigate = useNavigate();
   const params = useParams();
@@ -82,25 +82,11 @@ export default function AdminPanel() {
     const pageKey = path || "dashboard";
     const shouldUseStaffKpiLabel = user ? isOperationalStaffRole(user.role) : false;
 
-    // Redirect old /production-tasks route to /production?tab=tasks
-    if (path === "production-tasks" || path.startsWith("production-tasks")) {
-      navigate("/admin/production?tab=tasks", { replace: true });
-      return "Production";
-    }
-
-    // Handle Settings with query params for tabs
-    if (pageKey === "settings" || pageKey.startsWith("settings")) {
-      const searchParams = new URLSearchParams(location.search);
-      const tab = searchParams.get("tab");
-      if (tab === "system") return "System";
-      if (tab === "admins") return "Admin Accounts";
-      return "Settings";
-    }
-
     // Find matching page
     for (const [route, pageName] of Object.entries(ROUTE_TO_PAGE)) {
       if (pageKey === route || pageKey.startsWith(route + "/")) {
         if (route === "employees" && shouldUseStaffKpiLabel) return "My KPI";
+        if (route === "production" && (user?.role === "photographer" || user?.role === "videographer")) return "Production Tasks";
         return pageName;
       }
     }
@@ -116,46 +102,34 @@ export default function AdminPanel() {
     if (location.pathname.includes("/reservation/packages")) return "Packages";
     if (location.pathname.includes("/payments")) return "Payments";
     if (location.pathname.includes("/finance")) return "Finance";
-    if (location.pathname.includes("/production")) return "Production";
-    // Handle /admin/settings (no query params)
-    if (location.pathname === "/admin/settings") return "Settings";
+    if (location.pathname.includes("/production")) {
+      return user?.role === "photographer" || user?.role === "videographer"
+        ? "Production Tasks"
+        : "Production";
+    }
 
     return "Dashboard";
   };
 
   const [activeItem, setActiveItem] = useState(getCurrentPage);
 
-  // Update active item when route changes (include search params)
+  // Update active item when route changes
   useEffect(() => {
     setActiveItem(getCurrentPage());
-  }, [location.pathname, location.search]);
+  }, [location.pathname]);
 
   // Auth check
-  if (!isAuthenticated || isLoading) {
-    // Show loading spinner while auth is initializing
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-[#fbfaf7]">
-        <div className="text-center">
-          <div className="h-10 w-10 animate-spin rounded-full border-4 border-premium-beige border-t-transparent mx-auto" />
-          <p className="mt-4 text-sm text-foreground-secondary">Memuat...</p>
-        </div>
-      </div>
-    );
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
   }
 
-  // Role check - allow all admin roles (super_admin, admin, finance, editor, staff, photographer, videographer)
+  // Role check - allow all admin roles
   if (!user || !isAdminRole(user.role)) {
     return <Navigate to="/unauthorized" replace />;
   }
 
-  // Helper to normalize settings submenu items to "Settings" for permission check
-  const getPermissionKey = (item: string): string => {
-    if (item === "Admin Accounts" || item === "System") return "Settings";
-    return item;
-  };
-
   const handleSelectItem = (item: string) => {
-    if (!user || !canAccessAdminMenuItem(user.role, getPermissionKey(item))) return;
+    if (!user || !canAccessAdminMenuItem(user.role, item)) return;
     setActiveItem(item);
 
     // Navigate to appropriate route
@@ -172,15 +146,14 @@ export default function AdminPanel() {
       "Bookings": "/admin/bookings",
       "Payments": "/admin/payments",
       "Production": "/admin/production",
+      "Production Tasks": "/admin/production",
       "Customers": "/admin/customers",
       "Employees": "/admin/employees",
       "My KPI": "/admin/my-kpi",
       "Attendance": "/admin/attendance",
       "Finance": "/admin/finance",
       "Traffic": "/admin/traffic",
-      "Settings": "/admin/settings?tab=admins",
-      "Admin Accounts": "/admin/settings?tab=admins",
-      "System": "/admin/settings?tab=system",
+      "Settings": "/admin/settings",
     };
 
     const route = routeMap[item];
@@ -191,7 +164,7 @@ export default function AdminPanel() {
 
   // Determine which page to render
   const renderPage = () => {
-    if (!user || !canAccessAdminMenuItem(user.role, getPermissionKey(activeItem))) {
+    if (!user || !canAccessAdminMenuItem(user.role, activeItem)) {
       return (
         <UnauthorizedPage
           requiredRole="authorized staff management"
@@ -233,11 +206,9 @@ export default function AdminPanel() {
       case "Traffic":
         return <AnalyticsPage />;
       case "Settings":
-      case "Admin Accounts":
-        return <SettingsPage defaultTab="admins" />;
-      case "System":
-        return <SettingsPage defaultTab="system" />;
+        return <SettingsPage />;
       case "Production":
+      case "Production Tasks":
         return <ProductionPage />;
       case "Customers":
         return <CustomersPage />;

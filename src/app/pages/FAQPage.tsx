@@ -10,9 +10,12 @@ import {
   ShieldCheck,
   Truck,
 } from "lucide-react";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import PageIntro from "../components/PageIntro";
+import { useLanguage } from "../contexts/LanguageContext";
+import { useContent } from "../contexts/ContentContext";
+import { useAdmin } from "../contexts/AdminContext";
 
 interface FAQ {
   question: string;
@@ -168,13 +171,203 @@ const faqCategories: FAQCategory[] = [
   },
 ];
 
+const faqCategoriesEn: FAQCategory[] = [
+  {
+    id: "booking",
+    title: "Reservation",
+    label: "Schedule & Reservation",
+    icon: CalendarCheck,
+    faqs: [
+      {
+        question: "How do I reserve a wedding date with Danivisual?",
+        answer:
+          "Start from Reserve Date, choose your wedding package and service format, complete the essential event details, then upload the booking deposit proof. You can begin without creating an account.",
+      },
+      {
+        question: "Is my date secured immediately after booking?",
+        answer:
+          "Your date is held after the deposit proof is received. Our admin team will verify the payment and confirm the schedule with you via WhatsApp.",
+      },
+      {
+        question: "When should I reserve my date?",
+        answer:
+          "We recommend reserving 2-4 months before the event. For weekend or high-demand dates, earlier reservation gives you a more comfortable planning window.",
+      },
+    ],
+  },
+  {
+    id: "payment",
+    title: "Payment",
+    label: "Deposit & Settlement",
+    icon: CreditCard,
+    faqs: [
+      {
+        question: "How much is the booking deposit?",
+        answer:
+          "The booking deposit is IDR 500,000. It secures your date and will be counted toward the total package payment.",
+      },
+      {
+        question: "How does the remaining payment work?",
+        answer:
+          "The remaining balance will be confirmed after your booking is verified. The final amount follows the selected package, add-ons, and documentation needs agreed with our team.",
+      },
+      {
+        question: "Is the deposit refundable?",
+        answer:
+          "The deposit is non-refundable because the date is reserved for your event. If you need to reschedule, our admin will help check the closest available date.",
+      },
+    ],
+  },
+  {
+    id: "package",
+    title: "Packages",
+    label: "Packages & Add-ons",
+    icon: PackageCheck,
+    faqs: [
+      {
+        question: "What is the difference between Basic, Premium, and Exclusive?",
+        answer:
+          "Each tier differs in output volume, album or physical deliverables, and documentation coverage. The full inclusions appear once you select a package and service format.",
+      },
+      {
+        question: "Can I choose photo only or video only?",
+        answer:
+          "Yes. Wedding packages can be booked as Photo, Video, or Photo + Video, with transparent pricing shown before checkout.",
+      },
+      {
+        question: "Can add-ons be added after booking?",
+        answer:
+          "Yes, as long as the schedule and production setup still allow it. Add-ons such as drone, extra session, albums, or additional prints will be confirmed by our admin.",
+      },
+    ],
+  },
+  {
+    id: "process",
+    title: "Coverage",
+    label: "Event Day & Coverage",
+    icon: Images,
+    faqs: [
+      {
+        question: "How long does the wedding coverage last?",
+        answer:
+          "All wedding packages include up to 9 working hours for Akad and Reception coverage, unless you add extra coverage time.",
+      },
+      {
+        question: "Will the team arrive before the event starts?",
+        answer:
+          "Yes. Our team arrives earlier to review the venue, lighting, rundown, and essential coordination with family or other vendors.",
+      },
+      {
+        question: "Can we request specific angles or moments?",
+        answer:
+          "Absolutely. Share your notes during booking or with our admin, such as family portraits, decor details, special processions, or preferred visual references.",
+      },
+    ],
+  },
+  {
+    id: "delivery",
+    title: "Delivery",
+    label: "Files & Albums",
+    icon: Truck,
+    faqs: [
+      {
+        question: "How will the photo or video files be delivered?",
+        answer:
+          "Preview files and digital deliveries are shared online. For physical albums, delivery can be arranged through courier, COD, or office pickup.",
+      },
+      {
+        question: "Do I need to add a delivery address during booking?",
+        answer:
+          "Not yet. Our admin will follow up on delivery details after the event, keeping the reservation flow short and effortless.",
+      },
+      {
+        question: "Is there a packing fee for courier delivery?",
+        answer:
+          "If you choose courier delivery for a physical album, a packing fee of IDR 35,000 will be added to the booking summary.",
+      },
+    ],
+  },
+  {
+    id: "policy",
+    title: "Terms",
+    label: "Privacy & Terms",
+    icon: ShieldCheck,
+    faqs: [
+      {
+        question: "Will our photos be published in the portfolio?",
+        answer:
+          "We respect every client’s privacy. Portfolio publication will always follow your permission and comfort level.",
+      },
+      {
+        question: "Are raw files included?",
+        answer:
+          "Raw files are not included in the main packages. If you need specific additional files, our admin can help review them as an add-on request.",
+      },
+      {
+        question: "What if I need to change my package?",
+        answer:
+          "Package or add-on changes are handled through our admin so the schedule, team needs, and total payment remain clearly documented.",
+      },
+    ],
+  },
+];
+
 export default function FAQPage() {
+  const { language, t } = useLanguage();
+  const { getField } = useContent();
+  const { faqs: adminFaqs } = useAdmin();
   const [activeCategoryId, setActiveCategoryId] = useState(faqCategories[0].id);
   const [openIndex, setOpenIndex] = useState(0);
+  const adminFaqCategories = useMemo(() => {
+    // Get all published FAQs from AdminContext
+    // Note: loadFaqs() now ensures defaultFaqs are loaded when Supabase/localStorage are empty
+    // So adminFaqs should always have data (from Supabase -> localStorage -> defaultFaqs fallback)
+    const publishedFaqs = adminFaqs
+      .filter((faq) => faq.isPublished)
+      .sort((a, b) => a.sortOrder - b.sortOrder);
+
+    if (publishedFaqs.length === 0) return null;
+
+    const groups = new Map<string, typeof publishedFaqs>();
+    publishedFaqs.forEach((faq) => {
+      const categoryName = faq.category || "FAQ";
+      groups.set(categoryName, [...(groups.get(categoryName) || []), faq]);
+    });
+
+    const iconForCategory = (categoryName: string) => {
+      const normalized = categoryName.toLowerCase();
+      if (normalized.includes("booking") || normalized.includes("reservasi") || normalized.includes("jadwal")) return CalendarCheck;
+      if (normalized.includes("payment") || normalized.includes("bayar") || normalized.includes("dp")) return CreditCard;
+      if (normalized.includes("paket") || normalized.includes("package") || normalized.includes("add")) return PackageCheck;
+      if (normalized.includes("proses") || normalized.includes("hari") || normalized.includes("dokumentasi")) return Images;
+      if (normalized.includes("hasil") || normalized.includes("delivery") || normalized.includes("album")) return Truck;
+      if (normalized.includes("privasi") || normalized.includes("policy") || normalized.includes("ketentuan")) return ShieldCheck;
+      return HelpCircle;
+    };
+
+    return Array.from(groups.entries()).map(([categoryName, items]) => ({
+      id: categoryName.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/(^-|-$)/g, ""),
+      title: categoryName,
+      label: categoryName,
+      icon: iconForCategory(categoryName),
+      faqs: items.map((faq) => ({
+        question: faq.question,
+        answer: faq.answer,
+      })),
+    }));
+  }, [adminFaqs]);
+  const localizedFaqCategories = adminFaqCategories ?? (language === "ID" ? faqCategories : faqCategoriesEn);
+
+  useEffect(() => {
+    if (!localizedFaqCategories.some((category) => category.id === activeCategoryId)) {
+      setActiveCategoryId(localizedFaqCategories[0].id);
+      setOpenIndex(0);
+    }
+  }, [activeCategoryId, localizedFaqCategories]);
 
   const activeCategory = useMemo(
-    () => faqCategories.find((category) => category.id === activeCategoryId) ?? faqCategories[0],
-    [activeCategoryId],
+    () => localizedFaqCategories.find((category) => category.id === activeCategoryId) ?? localizedFaqCategories[0],
+    [activeCategoryId, localizedFaqCategories],
   );
 
   const ActiveIcon = activeCategory.icon;
@@ -187,16 +380,19 @@ export default function FAQPage() {
   return (
     <div className="min-h-screen bg-white text-foreground">
       <PageIntro
-        eyebrow="Client Guide"
-        title="Frequently Asked Questions"
-        description="Jawaban singkat untuk hal yang paling sering ditanyakan sebelum melakukan booking wedding bersama Danivisual."
+        eyebrow={getField("faq", "intro", "eyebrow", t({ ID: "Panduan Klien", EN: "Client Guide" }))}
+        title={getField("faq", "intro", "title", t({ ID: "Pertanyaan yang Sering Dibahas", EN: "Frequently Asked Questions" }))}
+        description={getField("faq", "intro", "description", t({
+          ID: "Jawaban ringkas untuk membantu Anda memahami alur reservasi, pilihan paket, pembayaran, hingga pengiriman hasil bersama Danivisual.",
+          EN: "A polished guide to help you understand reservations, package options, payment flow, production process, and final delivery with Danivisual.",
+        }))}
       />
 
       <section className="px-5 py-12 sm:px-8 lg:px-10 lg:py-20">
         <div className="mx-auto grid max-w-7xl gap-10 lg:grid-cols-[300px_minmax(0,1fr)_320px]">
           <aside className="lg:sticky lg:top-24 lg:self-start">
             <div className="border border-border-line bg-white p-3">
-              {faqCategories.map((category, index) => {
+              {localizedFaqCategories.map((category, index) => {
                 const Icon = category.icon;
                 const isActive = category.id === activeCategoryId;
 
@@ -295,15 +491,19 @@ export default function FAQPage() {
                 </span>
                 <div>
                   <p className="text-[0.68rem] font-semibold uppercase tracking-[0.28em] text-premium-beige">
-                    Need Help
+                    {t({ ID: "Butuh Arahan", EN: "Need Guidance" })}
                   </p>
-                  <h3 className="text-2xl leading-tight">Still deciding?</h3>
+                  <h3 className="text-2xl leading-tight">
+                    {t({ ID: "Masih menimbang?", EN: "Still deciding?" })}
+                  </h3>
                 </div>
               </div>
 
               <p className="mt-5 text-sm leading-7 text-foreground-secondary">
-                Jika ada detail acara yang belum pasti, tetap bisa booking dahulu. Admin akan bantu
-                follow up dekorasi, rundown, dan kebutuhan teknis setelah DP diverifikasi.
+                {t({
+                  ID: "Jika ada detail acara yang belum pasti, tetap bisa booking dahulu. Admin akan bantu follow up dekorasi, rundown, dan kebutuhan teknis setelah DP diverifikasi.",
+                  EN: "If some event details are still evolving, you can reserve the date first. Our admin will follow up on decor, rundown, and technical needs after the deposit is verified.",
+                })}
               </p>
 
               <div className="mt-6 space-y-3">
@@ -311,7 +511,7 @@ export default function FAQPage() {
                   to="/booking"
                   className="group flex min-h-12 w-full items-center justify-between bg-dark-premium px-5 text-sm font-semibold uppercase tracking-[0.18em] text-white transition-opacity hover:opacity-90"
                 >
-                  Booking Now
+                  {t({ ID: "Reservasi Sekarang", EN: "Reserve Date" })}
                   <ArrowRight size={17} className="transition-transform group-hover:translate-x-1" />
                 </Link>
                 <a
@@ -320,17 +520,17 @@ export default function FAQPage() {
                   rel="noopener noreferrer"
                   className="flex min-h-12 w-full items-center justify-center border border-border-line bg-white px-5 text-sm font-semibold uppercase tracking-[0.18em] transition-colors hover:border-premium-beige hover:bg-background-soft"
                 >
-                  Chat Admin
+                  {t({ ID: "Chat Admin", EN: "Chat with Admin" })}
                 </a>
               </div>
 
               <div className="mt-8 grid grid-cols-2 gap-3 border-t border-border-line pt-5">
                 <div>
                   <p className="text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
-                    9 Jam
+                    {t({ ID: "9 Jam", EN: "9 Hours" })}
                   </p>
                   <p className="mt-1 text-[0.68rem] uppercase tracking-[0.22em] text-foreground-secondary">
-                    Akad + Resepsi
+                    {t({ ID: "Akad + Resepsi", EN: "Ceremony + Reception" })}
                   </p>
                 </div>
                 <div>
@@ -338,7 +538,7 @@ export default function FAQPage() {
                     500k
                   </p>
                   <p className="mt-1 text-[0.68rem] uppercase tracking-[0.22em] text-foreground-secondary">
-                    DP Booking
+                    {t({ ID: "DP Booking", EN: "Booking Deposit" })}
                   </p>
                 </div>
               </div>

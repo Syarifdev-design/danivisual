@@ -23,41 +23,6 @@ export type SupabaseConfig = {
 
 export type ConnectionStatus = "connected" | "not_configured" | "error";
 
-/**
- * Result type for connection diagnostics
- */
-export interface ConnectionDiagnostic {
-  ok: boolean;
-  status: "connected" | "not_configured" | "error";
-  message: string;
-  checkedAt: string;
-  /** Error code if any (safe to expose) */
-  errorCode?: string;
-  /** Database response time in ms */
-  responseTimeMs?: number;
-}
-
-/**
- * Storage bucket diagnostic result
- */
-export interface BucketDiagnostic {
-  name: string;
-  status: "available" | "unavailable" | "unknown";
-  public?: boolean;
-  fileSizeLimit?: number;
-}
-
-/**
- * Storage diagnostics result
- */
-export interface StorageDiagnostic {
-  ok: boolean;
-  mode: "supabase" | "fallback";
-  buckets: BucketDiagnostic[];
-  checkedAt: string;
-  errorMessage?: string;
-}
-
 // ============================================================================
 // Configuration Detection
 // ============================================================================
@@ -197,186 +162,38 @@ export const getSupabaseClient = () => {
 // ============================================================================
 
 /**
- * Test koneksi ke Supabase dengan safe diagnostics
- * Tidak expose secret/key/URL
- *
- * @returns ConnectionDiagnostic - safe info only
+ * Test koneksi ke Supabase
  */
-export const checkSupabaseConnection = async (): Promise<ConnectionDiagnostic> => {
-  const checkedAt = new Date().toISOString();
-
+export const checkSupabaseConnection = async (): Promise<ConnectionStatus> => {
   if (!isSupabaseConfigured()) {
-    return {
-      ok: false,
-      status: "not_configured",
-      message: "Supabase not configured. Using localStorage fallback.",
-      checkedAt,
-    };
+    return "not_configured";
   }
 
   const client = getSupabaseClient();
-  if (!client) {
-    return {
-      ok: false,
-      status: "error",
-      message: "Supabase client unavailable.",
-      checkedAt,
-    };
-  }
+  if (!client) return "not_configured";
 
   try {
-    const startTime = performance.now();
-
-    // Safe query: count admin_users (lightweight, no sensitive data)
+    // Test dengan query sederhana
     const { error } = await client
-      .from("admin_users")
-      .select("id", { count: "exact", head: true })
+      .from("package_categories")
+      .select("id")
       .limit(1);
 
-    const responseTimeMs = Math.round(performance.now() - startTime);
-
     if (error) {
-      // Table might not exist yet, but connection is OK
-      if (error.code === "42P01" || error.code === "42P0") {
-        // Relation does not exist
-        console.info("[Supabase] Connected but tables not initialized.");
-        return {
-          ok: true,
-          status: "connected",
-          message: "Connected successfully. Tables not initialized yet.",
-          checkedAt,
-          responseTimeMs,
-        };
+      // Tabel mungkin belum ada, tapi koneksi berhasil
+      if (error.code === "42P01" || error.code === "404") {
+        console.info("[Supabase] Connected but tables not initialized yet.");
+        return "connected";
       }
-
-      // Auth or RLS error - connection is OK but permission issue
-      if (error.code === "PGRST204" || error.code === "42501") {
-        console.info("[Supabase] Connected. Permission check needed.");
-        return {
-          ok: true,
-          status: "connected",
-          message: "Connected. Access to data requires proper permissions.",
-          checkedAt,
-          responseTimeMs,
-        };
-      }
-
-      // Other errors
-      console.warn("[Supabase] Connection error:", error.code);
-      return {
-        ok: false,
-        status: "error",
-        message: "Connection error: " + (error.message || "Unknown error"),
-        checkedAt,
-        errorCode: error.code,
-        responseTimeMs,
-      };
+      console.warn("[Supabase] Connection error:", error.message);
+      return "error";
     }
 
-    return {
-      ok: true,
-      status: "connected",
-      message: "Connected successfully. Database is reachable.",
-      checkedAt,
-      responseTimeMs,
-    };
+    return "connected";
   } catch (err) {
-    const errorMessage = err instanceof Error ? err.message : "Unknown error";
-    console.error("[Supabase] Connection failed:", errorMessage);
-    return {
-      ok: false,
-      status: "error",
-      message: "Connection failed: " + errorMessage,
-      checkedAt,
-    };
+    console.error("[Supabase] Connection failed:", err);
+    return "error";
   }
-};
-
-/**
- * Get storage bucket diagnostics
- * Safe - does not expose URLs or keys
- *
- * @returns StorageDiagnostic
- */
-export const getStorageDiagnostics = async (): Promise<StorageDiagnostic> => {
-  const checkedAt = new Date().toISOString();
-
-  // Not configured = fallback mode
-  if (!isSupabaseConfigured()) {
-    return {
-      ok: false,
-      mode: "fallback",
-      buckets: [],
-      checkedAt,
-      errorMessage: "Using localStorage fallback. Supabase storage not available.",
-    };
-  }
-
-  const client = getSupabaseClient();
-  if (!client) {
-    return {
-      ok: false,
-      mode: "fallback",
-      buckets: [],
-      checkedAt,
-      errorMessage: "Supabase client unavailable.",
-    };
-  }
-
-  // Define buckets to check
-  const bucketNames = [
-    "content-images",
-    "portfolio-media",
-    "payment-proofs",
-    "attendance-selfies",
-  ];
-
-  const buckets: BucketDiagnostic[] = [];
-
-  for (const bucketName of bucketNames) {
-    try {
-      // Try to get bucket info
-      const { data, error } = await client
-        .storage
-        .getBucket(bucketName);
-
-      if (error) {
-        // Bucket might not exist or permission denied
-        if (error.message?.includes("not found") || error.status === 404) {
-          buckets.push({
-            name: bucketName,
-            status: "unavailable",
-          });
-        } else {
-          // Permission error or other - not fatal
-          buckets.push({
-            name: bucketName,
-            status: "unknown",
-          });
-        }
-      } else if (data) {
-        buckets.push({
-          name: bucketName,
-          status: "available",
-          public: data.public,
-          fileSizeLimit: data.file_size_limit || undefined,
-        });
-      }
-    } catch {
-      // Any exception = unknown status (not fatal)
-      buckets.push({
-        name: bucketName,
-        status: "unknown",
-      });
-    }
-  }
-
-  return {
-    ok: true,
-    mode: "supabase",
-    buckets,
-    checkedAt,
-  };
 };
 
 /**

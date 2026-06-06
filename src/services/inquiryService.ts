@@ -22,7 +22,6 @@ export interface Inquiry {
   message?: string;
   status: InquiryStatus;
   source: string;
-  customerId?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -35,28 +34,11 @@ export interface CreateInquiryData {
   message?: string;
 }
 
-export interface ConvertedCustomer {
-  id: string;
-  name: string;
-  email: string;
-  phone: string;
-  source: string;
-  status: string;
-}
-
-export interface ConvertInquiryResult {
-  success: boolean;
-  customer: ConvertedCustomer | null;
-  duplicate: boolean;
-  error?: string;
-}
-
 // ============================================================================
 // LocalStorage Keys
 // ============================================================================
 
 const STORAGE_KEY = "danivisual_inquiries";
-const CUSTOMERS_STORAGE_KEY = "danivisual_admin_customers";
 
 // ============================================================================
 // Helper Functions
@@ -77,17 +59,6 @@ const setLocalData = <T>(key: string, data: T): void => {
   localStorage.setItem(key, JSON.stringify(data));
 };
 
-const normalizeContact = (value?: string | null): string => (value || "").replace(/\D/g, "");
-
-const mapRowToCustomer = (row: Record<string, unknown>): ConvertedCustomer => ({
-  id: String(row.id || ""),
-  name: String(row.name || ""),
-  email: String(row.email || ""),
-  phone: String(row.phone || ""),
-  source: String(row.source || "manual"),
-  status: String(row.status || "lead"),
-});
-
 // Map database row to Inquiry interface
 const mapRowToInquiry = (row: Record<string, unknown>): Inquiry => ({
   id: row.id as string,
@@ -98,7 +69,6 @@ const mapRowToInquiry = (row: Record<string, unknown>): Inquiry => ({
   message: row.message as string | undefined,
   status: (row.status as InquiryStatus) || "new",
   source: row.source as string || "contact_page",
-  customerId: row.customer_id as string | undefined,
   createdAt: row.created_at as string,
   updatedAt: row.updated_at as string,
 });
@@ -279,177 +249,6 @@ export const updateInquiryStatus = async (
   );
   setLocalData(STORAGE_KEY, updatedInquiries);
   return updatedInquiries.find((inquiry) => inquiry.id === id) || null;
-};
-
-const findExistingCustomer = async (phone?: string, email?: string): Promise<ConvertedCustomer | null> => {
-  const normalizedPhone = normalizeContact(phone);
-  const normalizedEmail = (email || "").trim().toLowerCase();
-
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        if (normalizedPhone) {
-          const { data, error } = await client
-            .from("customers")
-            .select("id,name,email,phone,source,status")
-            .eq("is_active", true)
-            .eq("phone", phone)
-            .limit(1);
-
-          if (!error && data && data.length > 0) return mapRowToCustomer(data[0]);
-        }
-
-        if (normalizedEmail) {
-          const { data, error } = await client
-            .from("customers")
-            .select("id,name,email,phone,source,status")
-            .eq("is_active", true)
-            .eq("email", email)
-            .limit(1);
-
-          if (!error && data && data.length > 0) return mapRowToCustomer(data[0]);
-        }
-      } catch (err) {
-        console.warn("[InquiryService] findExistingCustomer error:", err);
-      }
-    }
-  }
-
-  const localCustomers = getLocalData<Record<string, unknown>[]>(CUSTOMERS_STORAGE_KEY, []);
-  const existing = localCustomers.find((customer) => {
-    const customerPhone = normalizeContact(customer.phone as string | undefined);
-    const customerEmail = String(customer.email || "").trim().toLowerCase();
-    return (
-      (normalizedPhone && customerPhone === normalizedPhone) ||
-      (normalizedEmail && customerEmail === normalizedEmail)
-    ) && customer.isActive !== false && customer.is_active !== false;
-  });
-
-  return existing ? mapRowToCustomer(existing) : null;
-};
-
-const createCustomerFromInquiry = async (inquiry: Inquiry): Promise<ConvertedCustomer | null> => {
-  const now = new Date().toISOString();
-  const customer = {
-    id: generateId(),
-    name: inquiry.name,
-    email: inquiry.email || "",
-    phone: inquiry.whatsapp || "",
-    address: "",
-    instagram: "",
-    notes: inquiry.message || "",
-    status: "lead",
-    source: "inquiry",
-    isActive: true,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        const { data, error } = await client
-          .from("customers")
-          .insert({
-            name: customer.name,
-            email: customer.email || null,
-            phone: customer.phone,
-            address: customer.address || null,
-            instagram: customer.instagram || null,
-            notes: customer.notes || null,
-            status: customer.status,
-            source: customer.source,
-            is_active: true,
-            created_at: now,
-            updated_at: now,
-          })
-          .select("id,name,email,phone,source,status")
-          .single();
-
-        if (!error && data) return mapRowToCustomer(data);
-        if (error) console.warn("[InquiryService] createCustomerFromInquiry error:", error.message);
-      } catch (err) {
-        console.warn("[InquiryService] createCustomerFromInquiry error:", err);
-      }
-    }
-  }
-
-  const localCustomers = getLocalData<Record<string, unknown>[]>(CUSTOMERS_STORAGE_KEY, []);
-  setLocalData(CUSTOMERS_STORAGE_KEY, [customer, ...localCustomers]);
-  return mapRowToCustomer({
-    id: customer.id,
-    name: customer.name,
-    email: customer.email,
-    phone: customer.phone,
-    source: customer.source,
-    status: customer.status,
-  });
-};
-
-const markInquiryConverted = async (inquiryId: string, customerId: string): Promise<Inquiry | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        const { data, error } = await client
-          .from("inquiries")
-          .update({ status: "converted", customer_id: customerId })
-          .eq("id", inquiryId)
-          .select()
-          .single();
-
-        if (!error && data) return mapRowToInquiry(data);
-
-        // If customer_id migration has not been applied yet, keep conversion working.
-        const { data: statusData, error: statusError } = await client
-          .from("inquiries")
-          .update({ status: "converted" })
-          .eq("id", inquiryId)
-          .select()
-          .single();
-
-        if (!statusError && statusData) return mapRowToInquiry(statusData);
-        if (error) console.warn("[InquiryService] markInquiryConverted error:", error.message);
-      } catch (err) {
-        console.warn("[InquiryService] markInquiryConverted error:", err);
-      }
-    }
-  }
-
-  const allInquiries = await getInquiries();
-  const updatedInquiries = allInquiries.map((inquiry) =>
-    inquiry.id === inquiryId
-      ? { ...inquiry, status: "converted" as InquiryStatus, customerId, updatedAt: new Date().toISOString() }
-      : inquiry
-  );
-  setLocalData(STORAGE_KEY, updatedInquiries);
-  return updatedInquiries.find((inquiry) => inquiry.id === inquiryId) || null;
-};
-
-/**
- * Convert inquiry into a Customer lead.
- */
-export const convertInquiryToCustomer = async (inquiryId: string): Promise<ConvertInquiryResult> => {
-  const inquiry = await getInquiryById(inquiryId);
-  if (!inquiry) {
-    return { success: false, customer: null, duplicate: false, error: "Inquiry tidak ditemukan." };
-  }
-
-  const existingCustomer = await findExistingCustomer(inquiry.whatsapp, inquiry.email);
-  if (existingCustomer) {
-    await markInquiryConverted(inquiry.id, existingCustomer.id);
-    return { success: true, customer: existingCustomer, duplicate: true };
-  }
-
-  const customer = await createCustomerFromInquiry(inquiry);
-  if (!customer) {
-    return { success: false, customer: null, duplicate: false, error: "Gagal membuat customer dari inquiry." };
-  }
-
-  await markInquiryConverted(inquiry.id, customer.id);
-  return { success: true, customer, duplicate: false };
 };
 
 /**

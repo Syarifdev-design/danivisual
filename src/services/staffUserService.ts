@@ -42,14 +42,6 @@ export type UpdateStaffUserInput = Partial<Omit<CreateStaffUserInput, "temporary
 };
 
 const DEV_STAFF_USERS_KEY = "danivisual_dev_staff_users";
-const DEV_EMPLOYEE_ID_BY_EMAIL: Record<string, string> = {
-  "admin@danivisual.test": "dev-employee-admin",
-  "finance@danivisual.test": "dev-employee-finance",
-  "editor@danivisual.test": "dev-employee-editor",
-  "photographer@danivisual.test": "dev-employee-photographer",
-  "videographer@danivisual.test": "dev-employee-videographer",
-  "staff@danivisual.test": "dev-employee-staff",
-};
 
 function isDevFallbackAllowed() {
   return import.meta.env.DEV;
@@ -98,14 +90,12 @@ function createDevUser(data: CreateStaffUserInput): StaffUser {
   const users = readDevUsers();
   const existing = users.find((user) => user.email.toLowerCase() === email);
   const operational = ["admin", "finance", "editor", "photographer", "videographer", "staff"].includes(data.role);
-  const sampleEmployeeId = DEV_EMPLOYEE_ID_BY_EMAIL[email];
-  const fallbackEmployeeId = sampleEmployeeId || existing?.employeeId || `dev-employee-${usernameFromEmail(email)}`;
   const now = new Date().toISOString();
   const nextUser: StaffUser & { temporaryPassword?: string } = {
     id: existing?.id || `dev-${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`,
     userId: existing?.userId || `dev-auth-${email}`,
     adminUserId: existing?.adminUserId || `dev-admin-${email}`,
-    employeeId: operational ? fallbackEmployeeId : null,
+    employeeId: operational ? existing?.employeeId || `dev-employee-${email}` : null,
     customerId: data.role === "customer" ? existing?.customerId || `dev-customer-${email}` : null,
     username: usernameFromEmail(email),
     name: data.name.trim(),
@@ -207,69 +197,7 @@ export async function getStaffUsers(): Promise<StaffUser[]> {
 }
 
 export async function deactivateStaffUser(id: string): Promise<void> {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) throw new Error("Supabase client is not available");
-
-    const { data: result, error } = await client.functions.invoke("update-staff-user", {
-      body: { userId: id, action: "deactivate" },
-    });
-
-    if (!error && result?.success) return;
-
-    // Parse error from Edge Function
-    const errorMessage = result?.error || error?.message || "Failed to deactivate user";
-    const errorCode = result?.code || "";
-
-    // LAST_SUPER_ADMIN guard returned409 from Edge Function
-    if (errorCode === "LAST_SUPER_ADMIN" || String(errorMessage).includes("Tidak dapat menonaktifkan")) {
-      throw new Error(
-        "Tidak dapat menonaktifkan satu-satunya Super Admin aktif. Sistem harus memiliki minimal satu Super Admin aktif."
-      );
-    }
-
-    if (!isDevFallbackAllowed()) {
-      throw new Error(errorMessage);
-    }
-  }
-
-  if (!isDevFallbackAllowed()) {
-    throw new Error("Supabase Edge Function is required to deactivate users in production");
-  }
-
-  // DEV fallback
-  const users = readDevUsers();
-  const existing = users.find((user) => user.id === id || user.adminUserId === id);
-  if (!existing) throw new Error("User not found");
-  writeDevUsers(users.map((user) => (user.id === existing.id ? { ...user, isActive: false } : user)));
-}
-
-export async function reactivateStaffUser(id: string): Promise<void> {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) throw new Error("Supabase client is not available");
-
-    const { data: result, error } = await client.functions.invoke("update-staff-user", {
-      body: { userId: id, action: "reactivate" },
-    });
-
-    if (!error && result?.success) return;
-
-    const errorMessage = result?.error || error?.message || "Failed to reactivate user";
-    if (!isDevFallbackAllowed()) {
-      throw new Error(errorMessage);
-    }
-  }
-
-  if (!isDevFallbackAllowed()) {
-    throw new Error("Supabase Edge Function is required to reactivate users in production");
-  }
-
-  // DEV fallback
-  const users = readDevUsers();
-  const existing = users.find((user) => user.id === id || user.adminUserId === id);
-  if (!existing) throw new Error("User not found");
-  writeDevUsers(users.map((user) => (user.id === existing.id ? { ...user, isActive: true } : user)));
+  await updateStaffUser(id, { isActive: false });
 }
 
 export async function updateStaffUser(id: string, data: UpdateStaffUserInput): Promise<StaffUser> {

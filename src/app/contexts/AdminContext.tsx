@@ -4,11 +4,9 @@ import {
   createStaffUser,
   deactivateStaffUser,
   getStaffUsers,
-  reactivateStaffUser,
   updateStaffUser,
   type CreateStaffUserInput,
 } from "../../services/staffUserService";
-import { findBookingForPayment } from "../../services/paymentService";
 import {
   packageCategories as bookingDataCategories,
   addons as bookingDataAddons,
@@ -40,27 +38,14 @@ export interface AdminUser {
   createdAt: string;
 }
 
-// Customer status for lifecycle tracking
-export type CustomerStatus = "lead" | "active" | "booked" | "completed" | "inactive" | "archived";
-
-// Customer source for tracking origin
-export type CustomerSource = "booking" | "inquiry" | "manual" | "portal";
-
 export interface Customer {
   id: string;
   name: string;
   email: string;
   phone: string;
   address: string;
-  instagram?: string;
   notes: string;
-  // Lifecycle management
-  status: CustomerStatus;
-  source: CustomerSource;
-  isActive: boolean;
-  // Timestamps
   createdAt: string;
-  updatedAt: string;
 }
 
 export interface Booking {
@@ -84,8 +69,6 @@ export interface Booking {
   paidAmount: number;
   remainingAmount: number;
   status: BookingStatus;
-  isActive?: boolean;
-  archivedAt?: string | null;
   notes: string;
   createdAt: string;
   updatedAt: string;
@@ -210,21 +193,15 @@ interface AdminContextType {
   bookingsError: string | null;
   addBooking: (booking: Omit<Booking, "id" | "orderNumber" | "createdAt" | "updatedAt">) => void;
   updateBooking: (id: string, updates: Partial<Booking>) => void;
-  archiveBooking: (id: string) => void;
   deleteBooking: (id: string) => void;
   refreshBookings: () => Promise<void>;
   verifyPayment: (bookingId: string, paymentId: string) => Promise<boolean>;
 
   // Customers
   customers: Customer[];
-  customersLoading: boolean;
-  customersError: string | null;
-  addCustomer: (customer: Omit<Customer, "id" | "createdAt" | "updatedAt">) => Promise<{ success: boolean; error?: string; duplicateId?: string; customerId?: string }>;
-  updateCustomer: (id: string, updates: Partial<Customer>) => Promise<boolean>;
-  archiveCustomer: (id: string) => Promise<boolean>;
-  refreshCustomers: () => Promise<void>;
-  checkDuplicateCustomer: (phone: string, email?: string) => Promise<Customer | null>;
-  deleteCustomer: (id: string) => void; // Deprecated: use archiveCustomer instead
+  addCustomer: (customer: Omit<Customer, "id" | "createdAt">) => void;
+  updateCustomer: (id: string, updates: Partial<Customer>) => void;
+  deleteCustomer: (id: string) => void;
 
   // Payments
   payments: Payment[];
@@ -340,8 +317,6 @@ const STORAGE_KEYS = {
 // Utility Functions
 // ============================================================================
 
-const isDevelopment = import.meta.env.DEV;
-
 function generateId(): string {
   return Date.now().toString(36) + Math.random().toString(36).substr(2);
 }
@@ -453,8 +428,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   const [bookingsLoading, setBookingsLoading] = useState(false);
   const [bookingsError, setBookingsError] = useState<string | null>(null);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [customersLoading, setCustomersLoading] = useState(false);
-  const [customersError, setCustomersError] = useState<string | null>(null);
   const [payments, setPayments] = useState<Payment[]>([]);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState<string | null>(null);
@@ -481,15 +454,15 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     // Bookings
     const storedBookings = localStorage.getItem(STORAGE_KEYS.bookings);
-    if (storedBookings && isDevelopment) setBookings(JSON.parse(storedBookings));
+    if (storedBookings) setBookings(JSON.parse(storedBookings));
 
     // Customers
     const storedCustomers = localStorage.getItem(STORAGE_KEYS.customers);
-    if (storedCustomers && isDevelopment) setCustomers(JSON.parse(storedCustomers));
+    if (storedCustomers) setCustomers(JSON.parse(storedCustomers));
 
     // Payments - initial load from localStorage
     const storedPayments = localStorage.getItem(STORAGE_KEYS.payments);
-    if (storedPayments && isDevelopment) setPayments(JSON.parse(storedPayments));
+    if (storedPayments) setPayments(JSON.parse(storedPayments));
 
   }, []);
 
@@ -865,43 +838,36 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       const client = getSupabaseClient();
       if (client) {
         try {
-          const { data: currentRole } = await client.rpc("dv_current_user_role");
-          const result = currentRole === "finance"
-            ? await client.rpc("dv_finance_booking_summary")
-            : await client
-                .from("bookings")
-                .select("*")
-                .order("created_at", { ascending: false });
-          const data = result.data as Array<Record<string, unknown>> | null;
-          const error = result.error;
+          const { data, error } = await client
+            .from("bookings")
+            .select("*")
+            .order("created_at", { ascending: false });
 
           if (!error && data) {
             const loadedBookings = data.map((row) => ({
-              id: String(row.id || ""),
-              orderNumber: String(row.order_number || ""),
-              customerId: String(row.customer_id || ""),
-              customerName: String(row.customer_name || ""),
-              customerEmail: currentRole === "finance" ? "" : String(row.customer_email || ""),
-              customerPhone: currentRole === "finance" ? "" : String(row.customer_phone || ""),
-              packageId: String(row.package_id || ""),
-              packageName: String(row.package_name || ""),
-              packagePrice: Number(row.package_price || 0),
-              addonIds: Array.isArray(row.addon_ids) ? row.addon_ids.map(String) : [],
-              addonTotal: Number(row.addon_total || 0),
-              eventDate: String(row.event_date || ""),
-              eventLocation: currentRole === "finance" ? "" : String(row.event_location || ""),
-              eventType: String(row.event_type || ""),
-              serviceType: String(row.service_type || ""),
-              totalAmount: Number(row.total_amount || 0),
-              dpAmount: Number(row.dp_amount || 0),
-              paidAmount: Number(row.paid_amount || 0),
-              remainingAmount: Number(row.remaining_amount || 0),
+              id: row.id,
+              orderNumber: row.order_number,
+              customerId: row.customer_id,
+              customerName: row.customer_name,
+              customerEmail: row.customer_email,
+              customerPhone: row.customer_phone,
+              packageId: row.package_id,
+              packageName: row.package_name,
+              packagePrice: row.package_price,
+              addonIds: row.addon_ids || [],
+              addonTotal: row.addon_total || 0,
+              eventDate: row.event_date,
+              eventLocation: row.event_location,
+              eventType: row.event_type,
+              serviceType: row.service_type,
+              totalAmount: row.total_amount,
+              dpAmount: row.dp_amount,
+              paidAmount: row.paid_amount,
+              remainingAmount: row.remaining_amount,
               status: row.status as BookingStatus,
-              isActive: row.is_active !== false,
-              archivedAt: String(row.archived_at || "") || null,
-              notes: currentRole === "finance" ? "" : String(row.notes || ""),
-              createdAt: String(row.created_at || ""),
-              updatedAt: String(row.updated_at || ""),
+              notes: row.notes || "",
+              createdAt: row.created_at,
+              updatedAt: row.updated_at,
             }));
             setBookings(loadedBookings);
             setBookingsLoading(false);
@@ -918,7 +884,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
     // Fallback to localStorage
     const storedBookings = localStorage.getItem(STORAGE_KEYS.bookings);
-    if (storedBookings && isDevelopment) {
+    if (storedBookings) {
       try {
         setBookings(JSON.parse(storedBookings));
       } catch {
@@ -937,9 +903,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   // Sync bookings to localStorage whenever they change
   useEffect(() => {
-    if (isDevelopment) {
-      localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(bookings));
-    }
+    localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(bookings));
   }, [bookings]);
 
   const loadFaqs = async () => {
@@ -1012,9 +976,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
 
   // Sync other data to localStorage
   useEffect(() => {
-    if (isDevelopment) {
-      localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(bookings));
-    }
+    localStorage.setItem(STORAGE_KEYS.bookings, JSON.stringify(bookings));
   }, [bookings]);
 
   useEffect(() => {
@@ -1063,8 +1025,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       ...bookingData,
       id: generateId(),
       orderNumber: generateOrderNumber(),
-      isActive: bookingData.isActive ?? true,
-      archivedAt: bookingData.archivedAt ?? null,
       createdAt: now,
       updatedAt: now,
     };
@@ -1098,8 +1058,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
             paid_amount: newBooking.paidAmount,
             remaining_amount: newBooking.remainingAmount,
             status: newBooking.status,
-            is_active: newBooking.isActive !== false,
-            archived_at: newBooking.archivedAt || null,
             notes: newBooking.notes || null,
             created_at: now,
             updated_at: now,
@@ -1112,19 +1070,9 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   };
 
   const updateBooking = async (id: string, updates: Partial<Booking>) => {
-    const now = new Date().toISOString();
-    const normalizedUpdates: Partial<Booking> =
-      updates.status === "cancelled"
-        ? {
-            ...updates,
-            isActive: false,
-            archivedAt: updates.archivedAt || now,
-          }
-        : updates;
-
     // Update local state first
     setBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, ...normalizedUpdates, updatedAt: now } : b))
+      prev.map((b) => (b.id === id ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b))
     );
 
     // Sync to Supabase
@@ -1133,14 +1081,12 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       if (client) {
         try {
           const dbUpdates: Record<string, unknown> = {};
-          if (normalizedUpdates.status !== undefined) dbUpdates.status = normalizedUpdates.status;
-          if (normalizedUpdates.paidAmount !== undefined) dbUpdates.paid_amount = normalizedUpdates.paidAmount;
-          if (normalizedUpdates.remainingAmount !== undefined) dbUpdates.remaining_amount = normalizedUpdates.remainingAmount;
-          if (normalizedUpdates.isActive !== undefined) dbUpdates.is_active = normalizedUpdates.isActive;
-          if (normalizedUpdates.archivedAt !== undefined) dbUpdates.archived_at = normalizedUpdates.archivedAt;
-          if (normalizedUpdates.notes !== undefined) dbUpdates.notes = normalizedUpdates.notes;
+          if (updates.status !== undefined) dbUpdates.status = updates.status;
+          if (updates.paidAmount !== undefined) dbUpdates.paid_amount = updates.paidAmount;
+          if (updates.remainingAmount !== undefined) dbUpdates.remaining_amount = updates.remainingAmount;
+          if (updates.notes !== undefined) dbUpdates.notes = updates.notes;
 
-          await client.from("bookings").update({ ...dbUpdates, updated_at: now }).eq("id", id);
+          await client.from("bookings").update({ ...dbUpdates, updated_at: new Date().toISOString() }).eq("id", id);
         } catch (err) {
           console.warn("[AdminContext] Failed to sync updated booking to Supabase:", err);
         }
@@ -1148,41 +1094,22 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     }
   };
 
-  const archiveBooking = async (id: string) => {
-    const now = new Date().toISOString();
+  const deleteBooking = async (id: string) => {
+    // Update local state first
+    setBookings((prev) => prev.filter((b) => b.id !== id));
 
-    // Soft archive locally first; booking history remains available.
-    setBookings((prev) =>
-      prev.map((b) =>
-        b.id === id
-          ? { ...b, status: "cancelled", isActive: false, archivedAt: now, updatedAt: now }
-          : b
-      )
-    );
-
-    // Sync to Supabase without hard delete.
+    // Sync to Supabase
     if (isSupabaseConfigured()) {
       const client = getSupabaseClient();
       if (client) {
         try {
-          await client
-            .from("bookings")
-            .update({
-              status: "cancelled",
-              is_active: false,
-              archived_at: now,
-              updated_at: now,
-            })
-            .eq("id", id);
+          await client.from("bookings").delete().eq("id", id);
         } catch (err) {
-          console.warn("[AdminContext] Failed to archive booking in Supabase:", err);
+          console.warn("[AdminContext] Failed to delete booking from Supabase:", err);
         }
       }
     }
   };
-
-  // Deprecated compatibility alias: never hard-delete bookings.
-  const deleteBooking = archiveBooking;
 
   // Refresh bookings
   const refreshBookings = async () => {
@@ -1234,393 +1161,21 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   // Customer Operations
   // ============================================================================
 
-  const mapCustomerRow = (row: Record<string, unknown>): Customer => ({
-    id: String(row.id || ""),
-    name: String(row.name || ""),
-    email: String(row.email || ""),
-    phone: String(row.phone || ""),
-    address: String(row.address || ""),
-    instagram: String(row.instagram || ""),
-    notes: String(row.notes || ""),
-    status: (row.status as CustomerStatus) || "lead",
-    source: (row.source as CustomerSource) || "manual",
-    isActive: row.is_active !== false,
-    createdAt: String(row.created_at || new Date().toISOString()),
-    updatedAt: String(row.updated_at || new Date().toISOString()),
-  });
-
-  const mapCustomerToDbRow = (customer: Customer): Record<string, unknown> => ({
-    id: customer.id,
-    name: customer.name,
-    email: customer.email || null,
-    phone: customer.phone,
-    address: customer.address || null,
-    instagram: customer.instagram || null,
-    notes: customer.notes || null,
-    status: customer.status,
-    source: customer.source,
-    is_active: customer.isActive,
-    created_at: customer.createdAt,
-    updated_at: customer.updatedAt,
-  });
-
-  const getDevStoredCustomers = (): Customer[] => {
-    if (!isDevelopment) return [];
-    const storedCustomers = localStorage.getItem(STORAGE_KEYS.customers);
-    if (!storedCustomers) return [];
-
-    try {
-      return JSON.parse(storedCustomers).filter((customer: Customer) => customer.isActive !== false);
-    } catch {
-      setCustomersError("Failed to parse localStorage customers");
-      return [];
-    }
-  };
-
-  // Load customers from Supabase (PRODUCTION: Supabase is REQUIRED)
-  const loadCustomers = async () => {
-    setCustomersLoading(true);
-    setCustomersError(null);
-
-    // Try Supabase first if configured
-    if (isSupabaseConfigured()) {
-      const client = getSupabaseClient();
-      if (client) {
-        try {
-          const { data: currentRole } = await client.rpc("dv_current_user_role");
-          const result = currentRole === "finance"
-            ? await client.rpc("dv_finance_customer_summary")
-            : await client
-                .from("customers")
-                .select("*")
-                .eq("is_active", true)
-                .order("created_at", { ascending: false });
-          const data = result.data as Array<Record<string, unknown>> | null;
-          const error = result.error;
-
-          if (!error && data) {
-            const loadedCustomers: Customer[] = data.map((row) => mapCustomerRow(
-              currentRole === "finance"
-                ? {
-                    ...row,
-                    name: row.customer_name,
-                    email: "",
-                    phone: "",
-                    address: "",
-                    instagram: "",
-                    notes: "",
-                  }
-                : row
-            ));
-            setCustomers(loadedCustomers);
-            if (isDevelopment) {
-              localStorage.setItem(STORAGE_KEYS.customers, JSON.stringify(loadedCustomers));
-            }
-            setCustomersLoading(false);
-            return;
-          }
-          if (error) {
-            const message = `Gagal memuat customers dari database: ${error.message}`;
-            console.error("[AdminContext]", message);
-            setCustomersError(message);
-            // PRODUCTION: No silent fallback - show error
-            if (!isDevelopment) {
-              setCustomers([]);
-              setCustomersLoading(false);
-              return;
-            }
-          }
-        } catch (err) {
-          const message = "Error memuat customers dari database";
-          console.error("[AdminContext]", message, err);
-          setCustomersError(message);
-          // PRODUCTION: No silent fallback - show error
-          if (!isDevelopment) {
-            setCustomers([]);
-            setCustomersLoading(false);
-            return;
-          }
-        }
-      }
-    } else if (!isDevelopment) {
-      // PRODUCTION: Supabase is REQUIRED
-      const message = "Supabase belum dikonfigurasi. Customers membutuhkan database di production.";
-      console.error("[AdminContext]", message);
-      setCustomersError(message);
-      setCustomers([]);
-      setCustomersLoading(false);
-      return;
-    }
-
-    // DEV-ONLY: localStorage fallback
-    if (isDevelopment) {
-      setCustomers(getDevStoredCustomers());
-    } else {
-      setCustomers([]);
-    }
-
-    setCustomersLoading(false);
-  };
-
-  // Load customers on mount
-  useEffect(() => {
-    loadCustomers();
-  }, []);
-
-  // Check for duplicate customer (by phone or email)
-  const checkDuplicateCustomer = async (phone: string, email?: string): Promise<Customer | null> => {
-    // First check local state (fastest)
-    const localDuplicate = customers.find(
-      c => c.phone === phone || (email && c.email === email)
-    );
-    if (localDuplicate) {
-      return localDuplicate;
-    }
-
-    // Check Supabase if configured
-    if (isSupabaseConfigured()) {
-      const client = getSupabaseClient();
-      if (client) {
-        try {
-          // Build query for phone check
-          let query = client
-            .from("customers")
-            .select("*")
-            .eq("phone", phone)
-            .eq("is_active", true)
-            .limit(1);
-
-          const { data, error } = await query;
-
-          if (!error && data && data.length > 0) {
-            return mapCustomerRow(data[0] as Record<string, unknown>);
-          }
-
-          // If email provided, also check email
-          if (email) {
-            const emailQuery = client
-              .from("customers")
-              .select("*")
-              .eq("email", email)
-              .eq("is_active", true)
-              .limit(1);
-
-            const emailResult = await emailQuery;
-
-            if (!emailResult.error && emailResult.data && emailResult.data.length > 0) {
-              return mapCustomerRow(emailResult.data[0] as Record<string, unknown>);
-            }
-          }
-        } catch (err) {
-          console.warn("[AdminContext] Duplicate check error:", err);
-        }
-      }
-    }
-
-    return null;
-  };
-
-  // Sync customers to localStorage whenever they change
-  useEffect(() => {
-    if (isDevelopment && customers.length > 0) {
-      localStorage.setItem(STORAGE_KEYS.customers, JSON.stringify(customers));
-    }
-  }, [customers]);
-
-  // Add new customer with Supabase sync (PRODUCTION: Supabase is REQUIRED)
-  const addCustomer = async (customerData: Omit<Customer, "id" | "createdAt" | "updatedAt">): Promise<{ success: boolean; error?: string; duplicateId?: string; customerId?: string }> => {
-    setCustomersError(null);
-    const now = new Date().toISOString();
+  const addCustomer = (customerData: Omit<Customer, "id" | "createdAt">) => {
     const newCustomer: Customer = {
       ...customerData,
       id: generateId(),
-      createdAt: now,
-      updatedAt: now,
+      createdAt: new Date().toISOString(),
     };
-
-    // Check for duplicate before adding
-    const duplicate = await checkDuplicateCustomer(customerData.phone, customerData.email);
-    if (duplicate) {
-      return {
-        success: false,
-        error: "Customer dengan kontak ini sudah ada.",
-        duplicateId: duplicate.id
-      };
-    }
-
-    if (isSupabaseConfigured()) {
-      const client = getSupabaseClient();
-      if (client) {
-        try {
-          const { data, error } = await client
-            .from("customers")
-            .insert(mapCustomerToDbRow(newCustomer))
-            .select()
-            .single();
-
-          if (error) {
-            const message = `Gagal menyimpan customer: ${error.message}`;
-            console.error("[AdminContext]", message);
-            setCustomersError(message);
-            // PRODUCTION: Return error, no silent fallback
-            if (!isDevelopment) {
-              return { success: false, error: message };
-            }
-          } else if (data) {
-            const savedCustomer = mapCustomerRow(data as Record<string, unknown>);
-            setCustomers((prev) => [savedCustomer, ...prev]);
-            return { success: true, customerId: savedCustomer.id };
-          }
-        } catch (err) {
-          const message = "Gagal menyimpan customer ke database.";
-          console.error("[AdminContext]", message, err);
-          setCustomersError(message);
-          // PRODUCTION: Return error, no silent fallback
-          if (!isDevelopment) {
-            return { success: false, error: message };
-          }
-        }
-      }
-    } else if (!isDevelopment) {
-      // PRODUCTION: Supabase is REQUIRED
-      const message = "Supabase belum dikonfigurasi. Tidak bisa menambah customer di production.";
-      console.error("[AdminContext]", message);
-      setCustomersError(message);
-      return { success: false, error: message };
-    }
-
-    // DEV-ONLY: Add to local state for development
     setCustomers((prev) => [newCustomer, ...prev]);
-    return { success: true, customerId: newCustomer.id };
   };
 
-  // Update customer with Supabase sync (PRODUCTION: Supabase is REQUIRED)
-  const updateCustomer = async (id: string, updates: Partial<Customer>): Promise<boolean> => {
-    setCustomersError(null);
-    const now = new Date().toISOString();
-    const nextUpdates = { ...updates, updatedAt: now };
-
-    // Sync to Supabase if configured
-    if (isSupabaseConfigured()) {
-      const client = getSupabaseClient();
-      if (client) {
-        try {
-          const dbUpdates: Record<string, unknown> = {
-            updated_at: now,
-          };
-
-          if (updates.name !== undefined) dbUpdates.name = updates.name;
-          if (updates.email !== undefined) dbUpdates.email = updates.email || null;
-          if (updates.phone !== undefined) dbUpdates.phone = updates.phone;
-          if (updates.address !== undefined) dbUpdates.address = updates.address || null;
-          if (updates.instagram !== undefined) dbUpdates.instagram = updates.instagram || null;
-          if (updates.notes !== undefined) dbUpdates.notes = updates.notes || null;
-          if (updates.status !== undefined) dbUpdates.status = updates.status;
-          if (updates.source !== undefined) dbUpdates.source = updates.source;
-          if (updates.isActive !== undefined) dbUpdates.is_active = updates.isActive;
-
-          const { data, error } = await client
-            .from("customers")
-            .update(dbUpdates)
-            .eq("id", id)
-            .select()
-            .single();
-
-          if (error) {
-            const message = `Gagal update customer: ${error.message}`;
-            console.error("[AdminContext]", message);
-            setCustomersError(message);
-            // PRODUCTION: Return error, no silent fallback
-            if (!isDevelopment) return false;
-          } else if (data) {
-            const updatedCustomer = mapCustomerRow(data as Record<string, unknown>);
-            setCustomers((prev) => prev.map((customer) => (customer.id === id ? updatedCustomer : customer)));
-            return true;
-          }
-        } catch (err) {
-          const message = "Gagal update customer di database.";
-          console.error("[AdminContext]", message, err);
-          setCustomersError(message);
-          // PRODUCTION: Return error, no silent fallback
-          if (!isDevelopment) return false;
-        }
-      }
-    } else if (!isDevelopment) {
-      // PRODUCTION: Supabase is REQUIRED
-      const message = "Supabase belum dikonfigurasi. Tidak bisa update customer di production.";
-      console.error("[AdminContext]", message);
-      setCustomersError(message);
-      return false;
-    }
-
-    // DEV-ONLY: Update local state for development
-    setCustomers((prev) =>
-      prev.map((c) => (c.id === id ? { ...c, ...nextUpdates } : c))
-    );
-    return true;
+  const updateCustomer = (id: string, updates: Partial<Customer>) => {
+    setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...updates } : c)));
   };
 
-  // Archive customer (soft delete) - sets status='archived' and is_active=false (PRODUCTION: Supabase is REQUIRED)
-  const archiveCustomer = async (id: string): Promise<boolean> => {
-    setCustomersError(null);
-    const now = new Date().toISOString();
-
-    // Sync to Supabase if configured
-    if (isSupabaseConfigured()) {
-      const client = getSupabaseClient();
-      if (client) {
-        try {
-          const { error } = await client
-            .from("customers")
-            .update({
-              status: "archived",
-              is_active: false,
-              updated_at: now,
-            })
-            .eq("id", id);
-
-          if (error) {
-            const message = `Gagal mengarsipkan customer: ${error.message}`;
-            console.error("[AdminContext]", message);
-            setCustomersError(message);
-            // PRODUCTION: Return error, no silent fallback
-            if (!isDevelopment) return false;
-          } else {
-            setCustomers((prev) => prev.filter((customer) => customer.id !== id));
-            return true;
-          }
-        } catch (err) {
-          const message = "Gagal mengarsipkan customer di database.";
-          console.error("[AdminContext]", message, err);
-          setCustomersError(message);
-          // PRODUCTION: Return error, no silent fallback
-          if (!isDevelopment) return false;
-        }
-      }
-    } else if (!isDevelopment) {
-      // PRODUCTION: Supabase is REQUIRED
-      const message = "Supabase belum dikonfigurasi. Tidak bisa mengarsipkan customer di production.";
-      console.error("[AdminContext]", message);
-      setCustomersError(message);
-      return false;
-    }
-
-    // DEV-ONLY: Archive locally for development
-    setCustomers((prev) =>
-      prev.filter((customer) => customer.id !== id)
-    );
-    return true;
-  };
-
-  // Deprecated: use archiveCustomer instead
   const deleteCustomer = (id: string) => {
-    console.warn("[AdminContext] deleteCustomer is deprecated, use archiveCustomer instead");
-    archiveCustomer(id);
-  };
-
-  // Refresh customers (reload from Supabase)
-  const refreshCustomers = async () => {
-    await loadCustomers();
+    setCustomers((prev) => prev.filter((c) => c.id !== id));
   };
 
   // ============================================================================
@@ -1661,11 +1216,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       // Update booking's paid_amount
       setBookings((prev) =>
         prev.map((b) => {
-          if (findBookingForPayment(payment, [b])) {
-            if (b.status === "cancelled") {
-              return b;
-            }
-
+          if (b.id === payment.bookingId || b.orderNumber === payment.bookingOrderNumber) {
             const newPaidAmount = b.paidAmount + payment.amount;
             const newRemainingAmount = Math.max(0, b.totalAmount - newPaidAmount);
             const isFullyPaid = newRemainingAmount <= 0;
@@ -1679,9 +1230,7 @@ export function AdminProvider({ children }: { children: ReactNode }) {
                 newStatus = "confirmed";
               }
               // Create production steps for this booking if not exists
-              if (b.status !== "cancelled") {
-                createProductionSteps(b.id);
-              }
+              createProductionSteps(b.id);
             } else if (payment.type === "final_payment") {
               // Final payment approved: mark as "paid_full"
               // Booking status becomes "in_progress" if not already confirmed
@@ -1712,8 +1261,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
         const client = getSupabaseClient();
         if (client) {
           // Find booking for this payment
-          const booking = findBookingForPayment(payment, bookings);
-          if (booking && booking.status !== "cancelled") {
+          const booking = bookings.find(b => b.id === payment.bookingId || b.orderNumber === payment.bookingOrderNumber);
+          if (booking) {
             updateBookingSupabase(booking.id, booking.orderNumber, payment.type, {
               paid_amount: payment.amount,
             });
@@ -1775,7 +1324,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       // Get booking details
       const booking = bookings.find(b => b.id === bookingId);
       if (!booking) return;
-      if (booking.status === "cancelled" || booking.isActive === false) return;
 
       // Create default production steps
       const newRecord = {
@@ -1831,19 +1379,6 @@ export function AdminProvider({ children }: { children: ReactNode }) {
     if (!client) return;
 
     try {
-      if (!bookingId) {
-        const { data: bookingByOrder } = await client
-          .from("bookings")
-          .select("id, paid_amount, total_amount, status")
-          .eq("order_number", orderNumber)
-          .single();
-
-        if (bookingByOrder) {
-          updateBookingData(client, bookingByOrder.id, bookingByOrder, paymentType, updates);
-        }
-        return;
-      }
-
       // Get current booking
       const { data: bookingData, error: fetchError } = await client
         .from("bookings")
@@ -2614,18 +2149,8 @@ export function AdminProvider({ children }: { children: ReactNode }) {
   };
 
   const deleteAdmin = async (id: string): Promise<void> => {
-    // Soft delete: set isActive = false, do NOT remove from list
-    // This preserves history and allows reactivation
     await deactivateStaffUser(id);
-
-    // Update local state to show inactive status, do not remove from list
-    setAdmins((prev) =>
-      prev.map((a) =>
-        a.id === id || a.adminUserId === id
-          ? { ...a, isActive: false }
-          : a
-      )
-    );
+    setAdmins((prev) => prev.filter((a) => a.id !== id));
   };
 
   // ============================================================================
@@ -2703,19 +2228,13 @@ export function AdminProvider({ children }: { children: ReactNode }) {
       bookingsError,
       addBooking,
       updateBooking,
-      archiveBooking,
       deleteBooking,
       refreshBookings,
       verifyPayment,
       // Customers
       customers,
-      customersLoading,
-      customersError,
       addCustomer,
       updateCustomer,
-      archiveCustomer,
-      refreshCustomers,
-      checkDuplicateCustomer,
       deleteCustomer,
       // Payments
       payments,

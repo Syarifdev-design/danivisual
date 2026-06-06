@@ -13,7 +13,6 @@ import {
   AlertCircle,
   Coffee,
   Camera,
-  Clock,
   MapPin,
   Loader2,
   Image as ImageIcon,
@@ -21,6 +20,8 @@ import {
 import {
   useAuth,
   useEmployeeIdWarning,
+  getEmployeeId,
+  userNeedsEmployeeId,
 } from "../../contexts/AuthContext";
 import {
   canManageAttendance,
@@ -135,421 +136,147 @@ const WORKING_DAY_OPTIONS: Array<{ value: WorkingDay; label: string }> = [
 // Selfie Capture Component
 // ============================================================================
 
-type CameraState = "idle" | "initializing" | "active" | "ready" | "captured" | "error";
-type CameraDebug = {
-  mediaDevicesAvailable: boolean;
-  streamActive: boolean;
-  videoReady: boolean;
-  videoWidth: number;
-  videoHeight: number;
-  errorMessage: string | null;
-};
-
 function SelfieCapture({
   onCapture,
   onCancel,
-  requireSelfie = true,
 }: {
   onCapture: (dataUrl: string) => void;
   onCancel: () => void;
-  requireSelfie?: boolean;
 }) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [cameraState, setCameraState] = useState<CameraState>("idle");
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [capturedImage, setCapturedImage] = useState<string | null>(null);
-  const [cameraError, setCameraError] = useState<string | null>(null);
-  const [isVideoReady, setIsVideoReady] = useState(false);
-  const [debug, setDebug] = useState<CameraDebug>({
-    mediaDevicesAvailable: false,
-    streamActive: false,
-    videoReady: false,
-    videoWidth: 0,
-    videoHeight: 0,
-    errorMessage: null,
-  });
+  const [captured, setCaptured] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // DEV debug helper
-  const updateDebug = (updates: Partial<CameraDebug>) => {
-    if (import.meta.env.DEV) {
-      setDebug((prev) => ({ ...prev, ...updates }));
-    }
-  };
-
-  // Stop all camera tracks
-  const stopAllTracks = useCallback(() => {
-    if (stream) {
-      stream.getTracks().forEach((track) => track.stop());
-      setStream(null);
-      updateDebug({ streamActive: false });
-    }
-  }, [stream]);
-
-  // Initialize camera with robust error handling
-  const initCamera = useCallback(async () => {
-    // Check browser compatibility
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      const errorMsg = "Browser tidak mendukung akses kamera. Gunakan Chrome atau Firefox versi terbaru.";
-      setCameraError(errorMsg);
-      setCameraState("error");
-      updateDebug({ mediaDevicesAvailable: false, errorMessage: errorMsg });
-      return;
-    }
-
-    updateDebug({ mediaDevicesAvailable: true });
-    setCameraState("initializing");
-    setCameraError(null);
-    setIsVideoReady(false);
-
+  const startCamera = useCallback(async () => {
     try {
-      // Request camera with basic settings first
       const mediaStream = await navigator.mediaDevices.getUserMedia({
-        video: {
-          facingMode: "user",
-          width: { ideal: 640 },
-          height: { ideal: 480 },
-        },
-        audio: false,
+        video: { facingMode: "user", width: 640, height: 480 },
       });
-
       setStream(mediaStream);
-      updateDebug({ streamActive: true });
-      setCameraState("active");
-
-      // Attach stream to video element
       if (videoRef.current) {
         videoRef.current.srcObject = mediaStream;
-        videoRef.current.load();
-
-        // Wait for video to be ready
-        await new Promise<void>((resolve) => {
-          const video = videoRef.current;
-          if (!video) {
-            resolve();
-            return;
-          }
-
-          // Check if already loaded
-          if (video.readyState >= 2) {
-            video.play().then(() => {
-              updateDebug({
-                videoReady: true,
-                videoWidth: video.videoWidth,
-                videoHeight: video.videoHeight,
-              });
-              setIsVideoReady(true);
-              setCameraState("ready");
-              resolve();
-            }).catch(() => {
-              setCameraState("active");
-              resolve();
-            });
-            return;
-          }
-
-          // Wait for loadedmetadata
-          video.onloadedmetadata = () => {
-            video.play().then(() => {
-              updateDebug({
-                videoReady: true,
-                videoWidth: video.videoWidth,
-                videoHeight: video.videoHeight,
-              });
-              setIsVideoReady(true);
-              setCameraState("ready");
-              resolve();
-            }).catch((e) => {
-              console.warn("[SelfieCapture] play error:", e);
-              setCameraState("active");
-              resolve();
-            });
-          };
-
-          // Timeout fallback after 5 seconds
-          setTimeout(() => {
-            if (video.videoWidth > 0) {
-              updateDebug({
-                videoReady: true,
-                videoWidth: video.videoWidth,
-                videoHeight: video.videoHeight,
-              });
-              setIsVideoReady(true);
-              setCameraState("ready");
-            }
-            resolve();
-          }, 5000);
-        });
-      } else {
-        setCameraState("active");
       }
     } catch (err) {
-      const error = err as Error;
-      console.error("[SelfieCapture] Camera error:", error);
-      updateDebug({ errorMessage: error.message });
-
-      if (error.name === "NotAllowedError" || error.name === "PermissionDeniedError") {
-        setCameraError("Izin kamera ditolak. Klik 'Izinkan' saat browser meminta akses kamera.");
-      } else if (error.name === "NotFoundError" || error.name === "DevicesNotFoundError") {
-        setCameraError("Kamera tidak ditemukan. Pastikan perangkat kamera terhubung.");
-      } else if (error.name === "NotReadableError" || error.name === "TrackStartError") {
-        setCameraError("Kamera sedang digunakan aplikasi lain. Tutup aplikasi lain yang menggunakan kamera dan coba lagi.");
-      } else {
-        setCameraError("Kamera tidak dapat diakses. Aktifkan izin kamera di browser, lalu coba lagi.");
-      }
-      setCameraState("error");
+      setError("Tidak dapat mengakses kamera. Pastikan izin kamera diberikan.");
     }
   }, []);
 
-  // Take photo from video
-  const takePhoto = useCallback(() => {
+  const takePhoto = () => {
+    if (!videoRef.current || !canvasRef.current) return;
     const video = videoRef.current;
-    if (!video || !canvasRef.current) {
-      setCameraError("Kamera belum siap. Tunggu beberapa detik lalu coba lagi.");
-      return;
-    }
-
-    // Check if video has dimensions
-    if (video.videoWidth === 0 || video.videoHeight === 0) {
-      setCameraError("Kamera belum siap. Tunggu beberapa detik lalu coba lagi.");
-      return;
-    }
-
     const canvas = canvasRef.current;
     canvas.width = video.videoWidth;
     canvas.height = video.videoHeight;
-
     const ctx = canvas.getContext("2d");
-    if (!ctx) {
-      setCameraError("Tidak dapat mengakses canvas. Coba lagi.");
-      return;
+    if (ctx) {
+      ctx.drawImage(video, 0, 0);
+      const dataUrl = canvas.toDataURL("image/jpeg", 0.8);
+      setCaptured(dataUrl);
     }
+  };
 
-    // Draw video frame to canvas
-    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
-
-    // Convert to data URL
-    const dataUrl = canvas.toDataURL("image/jpeg", 0.85);
-
-    // Stop camera stream
-    stopAllTracks();
-
-    // Save captured image
-    setCapturedImage(dataUrl);
-    setCameraState("captured");
-  }, [stopAllTracks]);
-
-  // Retake photo
-  const handleRetake = useCallback(() => {
-    setCapturedImage(null);
-    setCameraError(null);
-    setIsVideoReady(false);
-    initCamera();
-  }, [initCamera]);
-
-  // Confirm photo
-  const handleConfirm = useCallback(() => {
-    if (capturedImage) {
-      onCapture(capturedImage);
+  const handleConfirm = () => {
+    if (captured) {
+      onCapture(captured);
     }
-  }, [capturedImage, onCapture]);
-
-  // Handle modal cancel - cleanup camera
-  const handleCancel = useCallback(() => {
-    stopAllTracks();
-    setCapturedImage(null);
-    setCameraError(null);
-    setIsVideoReady(false);
-    setCameraState("idle");
-    onCancel();
-  }, [stopAllTracks, onCancel]);
+  };
 
   // Start camera on mount
   useEffect(() => {
-    initCamera();
-  }, [initCamera]);
+    startCamera();
+  }, [startCamera]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      stopAllTracks();
+      if (stream) {
+        stream.getTracks().forEach((track) => track.stop());
+      }
     };
-  }, [stopAllTracks]);
-
-  // Determine if quick check-in is allowed as fallback
-  const canUseQuickCheckIn = !requireSelfie;
+  }, [stream]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80">
       <div className="w-full max-w-md rounded-2xl bg-white p-6">
-        <div className="mb-4 flex items-center justify-between">
-          <h3 className="text-lg font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-            Ambil Foto Selfie
-          </h3>
-          <button
-            onClick={handleCancel}
-            className="rounded-lg p-2 text-foreground-secondary hover:bg-premium-beige/10"
-          >
-            <X size={20} />
-          </button>
-        </div>
+        <h3 className="mb-4 text-lg font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
+          Ambil Foto Selfie
+        </h3>
 
-        {/* Quick Check-In fallback */}
-        {canUseQuickCheckIn && cameraState === "error" && (
-          <div className="mb-4 rounded-lg bg-amber-50 p-4">
-            <p className="text-sm text-amber-700">Kamera tidak tersedia.</p>
-            <p className="mt-1 text-xs text-amber-600"> Anda bisa tetap Check In tanpa foto selfie.</p>
+        {error && (
+          <div className="mb-4 rounded-lg bg-red-50 p-4 text-sm text-red-700">
+            {error}
           </div>
         )}
 
-        {/* Error message */}
-        {cameraError && (
-          <div className="mb-4 rounded-lg bg-red-50 p-4">
-            <p className="text-sm text-red-700">{cameraError}</p>
-            <button
-              onClick={initCamera}
-              className="mt-2 rounded-lg bg-red-100 px-3 py-1.5 text-xs font-medium text-red-700 hover:bg-red-200"
-            >
-              Coba Lagi
-            </button>
-          </div>
-        )}
-
-        {/* Camera preview area */}
         <div className="relative aspect-[4/3] overflow-hidden rounded-lg bg-gray-900">
-          {/* Initializing state */}
-          {(cameraState === "idle" || cameraState === "initializing") && (
-            <div className="flex h-full flex-col items-center justify-center">
-              <Loader2 size={48} className="animate-spin text-white" />
-              <p className="mt-3 text-sm text-white/80">Menyalakan kamera...</p>
-            </div>
-          )}
-
-          {/* Error state - show camera icon */}
-          {cameraState === "error" && !capturedImage && (
-            <div className="flex h-full flex-col items-center justify-center">
-              <Camera size={48} className="text-gray-400" />
-              <p className="mt-3 text-sm text-gray-400">Kamera tidak aktif</p>
-            </div>
-          )}
-
-          {/* Video preview - always render when stream exists */}
-          {stream && (
+          {stream ? (
             <video
               ref={videoRef}
               autoPlay
               playsInline
               muted
               className="h-full w-full object-cover"
-              onCanPlay={() => {
-                updateDebug({
-                  videoReady: true,
-                  videoWidth: videoRef.current?.videoWidth || 0,
-                  videoHeight: videoRef.current?.videoHeight || 0,
-                });
-                setIsVideoReady(true);
-                setCameraState("ready");
-              }}
             />
-          )}
-
-          {/* Captured image preview */}
-          {capturedImage && (
+          ) : captured ? (
             <img
-              src={capturedImage}
+              src={captured}
               alt="Captured"
               className="h-full w-full object-cover"
             />
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <Camera size={48} className="text-gray-400" />
+            </div>
           )}
-
-          {/* Hidden canvas for capture */}
           <canvas ref={canvasRef} className="hidden" />
         </div>
 
-        {/* Helper text */}
-        <p className="mt-2 text-center text-xs text-foreground-secondary">
-          {cameraState === "idle" || cameraState === "initializing"
-            ? "Memuat kamera..."
-            : cameraState === "captured"
-            ? "Selfie berhasil diambil"
-            : cameraState === "error"
-            ? "Kamera tidak dapat diakses"
-            : isVideoReady
-            ? "Posisikan wajah Anda di dalam frame"
-            : "Menyiapkan kamera..."}
+        <p className="mt-2 text-xs text-center text-foreground-secondary">
+          {stream ? "Posisikan wajah Anda di dalam frame" : captured ? "Selfie berhasil diambil" : "Memuat kamera..."}
         </p>
 
-        {/* DEV Debug Info */}
-        {import.meta.env.DEV && cameraState === "error" && (
-          <div className="mt-2 rounded bg-gray-800 p-2 text-xs text-gray-400">
-            <p>Debug: {JSON.stringify(debug, null, 2)}</p>
-          </div>
-        )}
-
-        {/* Action buttons */}
         <div className="mt-4 flex gap-3">
-          {/* Quick Check-In/Out Button (fallback when requireSelfie is false) */}
-          {canUseQuickCheckIn && cameraState === "error" && (
-            <button
-              onClick={() => onCapture("quick-check-in")}
-              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-3 text-sm text-white hover:bg-emerald-600"
-            >
-              <Check size={16} />
-              Quick Check In
-            </button>
-          )}
-
-          {/* Cancel button */}
           <button
-            onClick={handleCancel}
+            onClick={onCancel}
             className="flex-1 rounded-lg border border-border-line py-3 text-sm"
           >
             Batal
           </button>
-
-          {/* Stream active - show Take Photo button */}
-          {stream && cameraState !== "captured" && (
+          {stream ? (
             <button
               onClick={takePhoto}
-              disabled={!isVideoReady}
-              className={`flex flex-1 items-center justify-center gap-2 rounded-lg py-3 text-sm text-white ${
-                isVideoReady
-                  ? "bg-dark-premium hover:bg-dark-premium/90"
-                  : "bg-gray-400 cursor-not-allowed"
-              }`}
+              disabled={loading}
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-dark-premium py-3 text-sm text-white"
             >
               <Camera size={16} />
-              {isVideoReady ? "Ambil Foto" : "Menyiapkan..."}
+              Ambil Foto
             </button>
-          )}
-
-          {/* Photo captured - show Retake and Confirm buttons */}
-          {cameraState === "captured" && (
+          ) : captured ? (
             <>
               <button
-                onClick={handleRetake}
+                onClick={() => setCaptured(null)}
                 className="flex-1 rounded-lg border border-border-line py-3 text-sm"
               >
                 Ambil Ulang
               </button>
               <button
                 onClick={handleConfirm}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-3 text-sm text-white hover:bg-emerald-600"
+                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-emerald-500 py-3 text-sm text-white"
               >
                 <Check size={16} />
                 Konfirmasi
               </button>
             </>
-          )}
-
-          {/* Error state - show retry button */}
-          {cameraState === "error" && requireSelfie && (
+          ) : (
             <button
-              onClick={initCamera}
+              onClick={startCamera}
               className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-dark-premium py-3 text-sm text-white"
             >
-              <Camera size={16} />
-              Buka Kamera
+              <Loader2 size={16} className="animate-spin" />
+              Memuat...
             </button>
           )}
         </div>
@@ -711,18 +438,17 @@ export default function AttendancePage() {
   const { user } = useAuth();
   const { employees, addAttendance, updateAttendance } = useEmployees();
   const safeEmployees = useMemo(() => Array.isArray(employees) ? employees : [], [employees]);
-  const hasEmployeeIdWarning = useEmployeeIdWarning();
   const canViewAll = user ? canViewAllStaffData(user.role) : false;
   const canViewOwn = user ? canViewOwnAttendance(user.role) : false;
   const canManage = user ? canManageAttendance(user.role) : false;
 
   // SECURITY: Use employeeId from AuthContext, not from form/UI selection
   const staffEmployeeId = user?.employeeId;
+  const hasEmployeeId = Boolean(staffEmployeeId);
 
   const staffEmployee = useMemo(() => {
     return getLinkedEmployeeForUser(safeEmployees, user);
   }, [safeEmployees, user]);
-  const effectiveEmployeeId = staffEmployee?.id || staffEmployeeId;
 
   // Attendance records from service
   const [attendanceRecords, setAttendanceRecords] = useState<AttendanceRecord[]>([]);
@@ -755,12 +481,12 @@ export default function AttendancePage() {
       // Staff (non-admin): must use employeeId from AuthContext
       if (canViewOwn && !canViewAll) {
         // Must have valid employeeId from AuthContext
-        if (!effectiveEmployeeId) {
+        if (!staffEmployeeId) {
           console.warn("[AttendancePage] No employeeId in AuthContext - cannot load own attendance");
           setAttendanceRecords([]);
           return;
         }
-        const records = await getAttendanceByEmployee(effectiveEmployeeId);
+        const records = await getAttendanceByEmployee(staffEmployeeId);
         setAttendanceRecords(Array.isArray(records) ? records : []);
         return;
       }
@@ -774,7 +500,7 @@ export default function AttendancePage() {
     } finally {
       setLoading(false);
     }
-  }, [canViewAll, canViewOwn, effectiveEmployeeId]);
+  }, [canViewAll, canViewOwn, staffEmployeeId]);
 
   useEffect(() => {
     loadAttendance();
@@ -791,9 +517,9 @@ export default function AttendancePage() {
     const active = safeEmployees.filter((e) => e.isActive);
     if (canViewAll) return active;
     // Staff: only show the employee matching their AuthContext employeeId
-    if (canViewOwn && effectiveEmployeeId) return active.filter((employee) => employee.id === effectiveEmployeeId);
+    if (canViewOwn && staffEmployeeId) return active.filter((employee) => employee.id === staffEmployeeId);
     return [];
-  }, [safeEmployees, canViewAll, canViewOwn, effectiveEmployeeId]);
+  }, [safeEmployees, canViewAll, canViewOwn, staffEmployeeId]);
 
   // Map service records to context format for compatibility
   const attendance = useMemo(() => {
@@ -838,9 +564,9 @@ export default function AttendancePage() {
     let filtered = monthAttendance;
 
     // SECURITY: Staff only sees their own attendance using AuthContext employeeId
-    if (!canViewAll && effectiveEmployeeId) {
+    if (!canViewAll && staffEmployeeId) {
       filtered = filtered.filter(
-        (att) => att.employeeId === effectiveEmployeeId
+        (att) => att.employeeId === staffEmployeeId
       );
     }
 
@@ -860,7 +586,7 @@ export default function AttendancePage() {
     }
 
     return filtered;
-  }, [monthAttendance, canViewAll, effectiveEmployeeId, searchQuery, statusFilter]);
+  }, [monthAttendance, canViewAll, staffEmployeeId, searchQuery, statusFilter]);
 
   // Daily attendance map
   const getAttendanceMap = () => {
@@ -897,11 +623,6 @@ export default function AttendancePage() {
     ? !attendanceSettings.requireSelfie && !attendanceSettings.requireGps
     : false;
 
-  const getAttendanceLocationForSubmit = async () => {
-    if (!attendanceSettings?.requireGps) return null;
-    return getCurrentLocation();
-  };
-
   const saveAttendanceSettings = async (settings: AttendanceSettings) => {
     setSettingsSaving(true);
     try {
@@ -932,58 +653,23 @@ export default function AttendancePage() {
   };
 
   // Handle selfie captured
-  // SECURITY: Admin/super_admin can submit for any employee
-  // Staff can only submit for themselves
+  // SECURITY: Use employeeId from AuthContext, verify ownership before submit
   const handleSelfieCaptured = async (dataUrl: string) => {
     if (!selfieTargetEmployee) return;
 
-    // Handle quick check-in fallback (when camera fails and requireSelfie is false)
-    if (dataUrl === "quick-check-in") {
-      setSubmitting(true);
-      try {
-        const location = await getCurrentLocation();
+    // SECURITY: Block if no employeeId in AuthContext
+    if (!staffEmployeeId) {
+      alert("Profil staff belum terhubung. Hubungi admin untuk menghubungkan akun Anda dengan profil employee.");
+      setShowSelfieModal(false);
+      setSelfieTargetEmployee(null);
+      return;
+    }
 
-        if (selfieType === "check-in") {
-          const verifiedId = canViewAll ? selfieTargetEmployee.id : effectiveEmployeeId;
-          const result = await checkInService({
-            employeeId: selfieTargetEmployee.id,
-            employeeName: selfieTargetEmployee.name,
-            employeeRole: selfieTargetEmployee.role,
-            date: selectedDate,
-            latitude: location?.latitude,
-            longitude: location?.longitude,
-          }, {
-            verifiedEmployeeId: verifiedId,
-            userRole: user?.role,
-          });
-
-          if (result.success) await loadAttendance();
-          else if (result.error) alert(result.error);
-        } else {
-          // Check-out without selfie
-          const existing = selectedDateAttendance.find(
-            (a) => a.employeeId === selfieTargetEmployee.id
-          );
-          if (existing) {
-            const verifiedId = canViewAll ? existing.employeeId : effectiveEmployeeId;
-            const result = await checkOutService(existing.id, {
-              latitude: location?.latitude,
-              longitude: location?.longitude,
-            }, {
-              verifiedEmployeeId: verifiedId,
-              userRole: user?.role,
-            });
-            if (result.success) await loadAttendance();
-            else if (result.error) alert(result.error);
-          }
-        }
-      } catch (err) {
-        console.error("Quick check-in error:", err);
-      } finally {
-        setSubmitting(false);
-        setShowSelfieModal(false);
-        setSelfieTargetEmployee(null);
-      }
+    // SECURITY: Verify the target employee matches the AuthContext employeeId
+    if (selfieTargetEmployee.id !== staffEmployeeId && !canViewAll) {
+      alert("Anda tidak有权检查其他员工的出勤记录。");
+      setShowSelfieModal(false);
+      setSelfieTargetEmployee(null);
       return;
     }
 
@@ -993,10 +679,7 @@ export default function AttendancePage() {
       const location = await getCurrentLocation();
 
       if (selfieType === "check-in") {
-        // Admin: can check in any employee
-        // Staff: must have employeeId and target must be self
-        const verifiedId = canViewAll ? selfieTargetEmployee.id : effectiveEmployeeId;
-
+        // SECURITY: Pass verified employeeId from AuthContext
         const result = await checkInService({
           employeeId: selfieTargetEmployee.id,
           employeeName: selfieTargetEmployee.name,
@@ -1006,7 +689,7 @@ export default function AttendancePage() {
           latitude: location?.latitude,
           longitude: location?.longitude,
         }, {
-          verifiedEmployeeId: verifiedId,
+          verifiedEmployeeId: staffEmployeeId,
           userRole: user?.role,
         });
 
@@ -1021,14 +704,13 @@ export default function AttendancePage() {
           (a) => a.employeeId === selfieTargetEmployee.id
         );
         if (existing) {
-          const verifiedId = canViewAll ? existing.employeeId : effectiveEmployeeId;
-
+          // SECURITY: Pass verified employeeId from AuthContext
           const result = await checkOutService(existing.id, {
             selfieDataUrl: dataUrl,
             latitude: location?.latitude,
             longitude: location?.longitude,
           }, {
-            verifiedEmployeeId: verifiedId,
+            verifiedEmployeeId: staffEmployeeId,
             userRole: user?.role,
           });
 
@@ -1048,73 +730,15 @@ export default function AttendancePage() {
     }
   };
 
-  const handlePersonalCheckIn = async (emp: Employee) => {
-    if (attendanceSettings?.requireSelfie) {
-      setSelfieTargetEmployee(emp);
-      setSelfieType("check-in");
-      setShowSelfieModal(true);
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const location = await getAttendanceLocationForSubmit();
-      const result = await checkInService({
-        employeeId: emp.id,
-        employeeName: emp.name,
-        employeeRole: emp.role,
-        date: selectedDate,
-        latitude: location?.latitude,
-        longitude: location?.longitude,
-      }, {
-        verifiedEmployeeId: canViewAll ? emp.id : effectiveEmployeeId,
-        userRole: user?.role,
-      });
-      if (result.success) await loadAttendance();
-      else if (result.error) alert(result.error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  const handlePersonalCheckOut = async (att: Attendance) => {
-    if (attendanceSettings?.requireSelfie) {
-      if (staffEmployee) {
-        setSelfieTargetEmployee(staffEmployee);
-        setSelfieType("check-out");
-        setShowSelfieModal(true);
-      }
-      return;
-    }
-
-    setSubmitting(true);
-    try {
-      const location = await getAttendanceLocationForSubmit();
-      const result = await checkOutService(att.id, {
-        latitude: location?.latitude,
-        longitude: location?.longitude,
-      }, {
-        verifiedEmployeeId: canViewAll ? att.employeeId : effectiveEmployeeId,
-        userRole: user?.role,
-      });
-      if (result.success) await loadAttendance();
-      else if (result.error) alert(result.error);
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
   // Quick check-in without selfie (fallback)
-  // SECURITY: Admin can check in any employee, Staff can only check in for self
+  // SECURITY: Staff can only check in their own record
   const handleQuickCheckIn = async (emp: Employee) => {
-    // Admin can check in any employee, Staff can only check in for self
-    if (!canViewAll && emp.id !== effectiveEmployeeId) return;
+    // SECURITY: Only allow check-in for self
+    if (!canViewAll && emp.id !== staffEmployeeId) return;
+    if (!canViewAll && !staffEmployeeId) return; // Block if no employeeId
 
     const existing = selectedDateAttendance.find((a) => a.employeeId === emp.id);
     if (existing) return;
-
-    // Admin: use target employee id as verifiedId, Staff: use own employeeId
-    const verifiedId = canViewAll ? emp.id : effectiveEmployeeId;
 
     // SECURITY: Pass verified employeeId from AuthContext
     const result = await checkInService({
@@ -1123,7 +747,7 @@ export default function AttendancePage() {
       employeeRole: emp.role,
       date: selectedDate,
     }, {
-      verifiedEmployeeId: verifiedId,
+      verifiedEmployeeId: staffEmployeeId,
       userRole: user?.role,
     });
 
@@ -1135,21 +759,18 @@ export default function AttendancePage() {
   };
 
   // Quick check-out (fallback)
-  // SECURITY: Admin can check out any record, Staff can only check out own records
-  const handleQuickCheckOut = async (attId: string, empId?: string) => {
+  // SECURITY: Staff can only check out their own records
+  const handleQuickCheckOut = async (attId: string) => {
     const existing = selectedDateAttendance.find((a) => a.id === attId);
-    // SECURITY: Admin can check out any record, Staff can only check out own records
+    // SECURITY: Only allow check-out for own records
     if (!canViewAll) {
-      if (!effectiveEmployeeId) return;
-      if (existing?.employeeId !== effectiveEmployeeId) return;
+      if (!staffEmployeeId) return;
+      if (existing?.employeeId !== staffEmployeeId) return;
     }
-
-    // Admin: use existing employeeId as verifiedId, Staff: use own employeeId
-    const verifiedId = canViewAll ? existing?.employeeId : effectiveEmployeeId;
 
     // SECURITY: Pass verified employeeId from AuthContext
     const result = await checkOutService(attId, undefined, {
-      verifiedEmployeeId: verifiedId,
+      verifiedEmployeeId: staffEmployeeId,
       userRole: user?.role,
     });
 
@@ -1225,7 +846,6 @@ export default function AttendancePage() {
             setShowSelfieModal(false);
             setSelfieTargetEmployee(null);
           }}
-          requireSelfie={attendanceSettings?.requireSelfie ?? true}
         />
       )}
 
@@ -1241,7 +861,7 @@ export default function AttendancePage() {
           </p>
         </div>
         {/* Employee ID Missing Warning */}
-        {hasEmployeeIdWarning && (
+        {useEmployeeIdWarning() && (
           <div className="mt-3 w-full rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-700">
             ⚠️ Profil staff belum terhubung dengan data karyawan. Hubungi admin untuk menghubungkan akun Anda dengan profil employee.
           </div>
@@ -1294,19 +914,6 @@ export default function AttendancePage() {
         </div>
       )}
 
-      {/* Fallback: no employee profile */}
-      {user?.role === "super_admin" && !staffEmployee ? (
-        <div className="rounded-xl border border-border-line bg-white/70 p-4">
-          <p className="text-sm text-foreground-secondary">
-            Akun super admin belum terhubung ke profil karyawan. Anda tetap bisa mengelola absensi staff.
-          </p>
-        </div>
-      ) : (canViewOwn || canViewAll) && !staffEmployee ? (
-        <div className="rounded-xl border border-border-line bg-amber-50 p-4">
-          <p className="text-sm text-amber-700">⚠️ Akun belum terhubung ke profil employee</p>
-        </div>
-      ) : null}
-
       {activeTab === "settings" && canManage ? (
         attendanceSettings ? (
           <AttendanceSettingsPanel
@@ -1321,158 +928,6 @@ export default function AttendancePage() {
         )
       ) : (
         <>
-      {/* ============================================
-          TODAY'S ATTENDANCE CARD
-          ============================================ */}
-      {(canViewOwn || canViewAll) && staffEmployee ? (
-        <div className="rounded-2xl border border-premium-beige/25 bg-white p-6 shadow-[0_18px_60px_rgba(40,28,16,0.08)]">
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <p className="text-xs uppercase tracking-[0.24em] text-premium-beige">Absensi Hari Ini</p>
-              <h3 className="mt-1 text-xl font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-                {formatDate(selectedDate)}
-              </h3>
-            </div>
-            <div className="text-right">
-              {(() => {
-                const todayAtt = attendance.find((a) => a.date === selectedDate && a.employeeId === staffEmployee?.id);
-                if (!todayAtt) {
-                  return <span className="rounded-full bg-gray-100 px-4 py-2 text-sm font-medium text-gray-600">Belum Check In</span>;
-                }
-                if (todayAtt.checkOut) {
-                  return <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-700">Selesai</span>;
-                }
-                if (todayAtt.status === "late") {
-                  return <span className="rounded-full bg-amber-100 px-4 py-2 text-sm font-medium text-amber-700">Terlambat</span>;
-                }
-                return <span className="rounded-full bg-emerald-100 px-4 py-2 text-sm font-medium text-emerald-700">Sudah Check In</span>;
-              })()}
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-            {/* Staff Info */}
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-full bg-premium-beige/10 text-lg font-medium">
-                {staffEmployee.name.charAt(0)}
-              </div>
-              <div>
-                <p className="font-medium">{staffEmployee.name}</p>
-                <p className="text-xs text-foreground-secondary">
-                  {ROLE_LABELS[staffEmployee.role as keyof typeof ROLE_LABELS] || staffEmployee.role}
-                </p>
-              </div>
-            </div>
-
-            {/* Check In Time */}
-            <div className="flex items-center gap-2">
-              <MapPin size={18} className="text-emerald-500" />
-              <div>
-                <p className="text-xs text-foreground-secondary">Check In</p>
-                <p className="font-medium">
-                  {(() => {
-                    const todayAtt = attendance.find((a) => a.date === selectedDate && a.employeeId === staffEmployee?.id);
-                    return todayAtt?.checkIn ? formatTime(todayAtt.checkIn) : "-";
-                  })()}
-                </p>
-              </div>
-            </div>
-
-            {/* Check Out Time */}
-            <div className="flex items-center gap-2">
-              <MapPin size={18} className="text-blue-500" />
-              <div>
-                <p className="text-xs text-foreground-secondary">Check Out</p>
-                <p className="font-medium">
-                  {(() => {
-                    const todayAtt = attendance.find((a) => a.date === selectedDate && a.employeeId === staffEmployee?.id);
-                    return todayAtt?.checkOut ? formatTime(todayAtt.checkOut) : "-";
-                  })()}
-                </p>
-              </div>
-            </div>
-
-            {/* Duration */}
-            <div className="flex items-center gap-2">
-              <Clock size={18} className="text-purple-500" />
-              <div>
-                <p className="text-xs text-foreground-secondary">Durasi</p>
-                <p className="font-medium">
-                  {(() => {
-                    const todayAtt = attendance.find((a) => a.date === selectedDate && a.employeeId === staffEmployee?.id);
-                    if (!todayAtt?.checkIn || !todayAtt?.checkOut) return "-";
-                    const checkIn = new Date(todayAtt.checkIn);
-                    const checkOut = new Date(todayAtt.checkOut);
-                    const mins = Math.round((checkOut.getTime() - checkIn.getTime()) / 60000);
-                    const hours = Math.floor(mins / 60);
-                    const remainingMins = mins % 60;
-                    return `${hours}h ${remainingMins}m`;
-                  })()}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="mt-4 flex gap-3">
-            {(() => {
-              const todayAtt = attendance.find((a) => a.date === selectedDate && a.employeeId === staffEmployee?.id);
-	              if (!todayAtt) {
-	                return (
-	                  <>
-                    <button
-                      onClick={() => handlePersonalCheckIn(staffEmployee)}
-                      disabled={submitting}
-                      className="flex items-center gap-2 rounded-full bg-emerald-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-emerald-600"
-                    >
-                      <Camera size={16} />
-                      Check In
-                    </button>
-                  </>
-                );
-              }
-              if (!todayAtt.checkOut) {
-                return (
-                  <>
-                    <button
-                      onClick={() => handlePersonalCheckOut(todayAtt)}
-                      disabled={submitting}
-                      className="flex items-center gap-2 rounded-full bg-blue-500 px-6 py-3 text-sm font-semibold text-white transition hover:bg-blue-600"
-                    >
-                      <Camera size={16} />
-                      Check Out
-                    </button>
-                  </>
-                );
-              }
-              return (
-                <button
-                  disabled
-                  className="flex items-center gap-2 rounded-full bg-gray-100 px-6 py-3 text-sm font-medium text-gray-400"
-                >
-                  <CheckCircle size={16} />
-                  Absensi Selesai
-                </button>
-              );
-            })()}
-          </div>
-        </div>
-      ) : null}
-
-      {/* Attendance Rules Info */}
-      {attendanceSettings && (
-        <div className="rounded-xl border border-border-line bg-white/60 p-4">
-          <p className="mb-2 text-xs font-semibold text-foreground-secondary">Aturan Absensi:</p>
-          <div className="flex flex-wrap gap-4 text-xs text-foreground-secondary">
-            <span>Jam Masuk: {attendanceSettings.workStartTime}</span>
-            <span>Jam Pulang: {attendanceSettings.workEndTime}</span>
-            <span>Toleransi: {attendanceSettings.lateToleranceMinutes} menit</span>
-            {attendanceSettings.requireSelfie && <span className="text-amber-600">📸 Selfie Wajib</span>}
-            {attendanceSettings.requireGps && <span className="text-amber-600">📍 GPS Wajib</span>}
-          </div>
-        </div>
-      )}
-
       {/* Month Nav */}
       <div className="flex items-center justify-between rounded-xl border border-border-line bg-white p-4">
         <button onClick={prevMonth} className="rounded-lg p-2 hover:bg-premium-beige/10">
@@ -1647,7 +1102,7 @@ export default function AttendancePage() {
                             <Camera size={14} />
                             Out
                           </button>
-                          {quickAttendanceAllowed && (
+                          {!canViewAll && quickAttendanceAllowed && (
                             <button
                               onClick={() => handleQuickCheckOut(att.id)}
                               className="rounded-lg bg-blue-100 px-3 py-2 text-xs text-blue-700 transition hover:bg-blue-200"
@@ -1666,7 +1121,7 @@ export default function AttendancePage() {
                           <Camera size={14} />
                           In
                         </button>
-                        {quickAttendanceAllowed && (
+                        {!canViewAll && quickAttendanceAllowed && (
                           <button
                             onClick={() => handleQuickCheckIn(emp)}
                             className="rounded-lg bg-emerald-100 px-3 py-2 text-xs text-emerald-700 transition hover:bg-emerald-200"

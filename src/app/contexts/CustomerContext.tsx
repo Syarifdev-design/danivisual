@@ -1,34 +1,16 @@
 /**
  * Customer Portal Context
  *
- * SECURITY MODEL (2026-06-05):
+ * Mengelola data untuk client portal (dashboard):
+ * - My Booking
+ * - Payment Status
+ * - Production Progress
  *
- * Auth:
- * - Customer portal requires Supabase Auth JWT (email/password or magic link)
- * - Session token stored by Supabase Auth in localStorage
- * - Edge Function verifies JWT server-side and scopes data by customer_id
- *
- * Data access:
- * - All booking data comes ONLY from the customer-bookings Edge Function
- * - Edge Function scopes data by bookings.customer_id = customers.id
- * - customers.auth_id = auth.uid() links auth user to customer record
- * - NO direct Supabase queries for customer-sensitive data in the portal
- *
- * Fallback behavior:
- * - If Edge Function fails → show error message, NO data exposure
- * - If no JWT session → show "Silakan login terlebih dahulu"
- * - Production portal disabled by default (CLIENT_PORTAL_ENABLED flag)
- *
- * Production portal activation (requires all steps):
- * 1. Migration 012_add_customers_auth_id_link.sql applied
- * 2. Edge Function customer-bookings deployed
- * 3. Customer records linked to auth.users via customers.auth_id
- * 4. Customer login via Supabase Auth
- * 5. VITE_CLIENT_PORTAL_ENABLED=true in production .env
+ * Data diambil dari Supabase berdasarkan customer phone/email
+ * dengan RLS policies untuk keamanan.
  */
 
 import { createContext, ReactNode, useContext, useEffect, useMemo, useState } from "react";
-import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { getSupabaseClient, isSupabaseConfigured } from "../../lib/supabaseClient";
 import {
   getProductionRecord,
@@ -37,31 +19,6 @@ import {
   ProductionStepStatus,
 } from "../../services/productionService";
 import { DP_AMOUNT } from "../data/bookingData";
-
-// ============================================================================
-// FEATURE FLAG: Client Portal enabled?
-// In production (import.meta.env.PROD), this must be explicitly enabled
-// via VITE_CLIENT_PORTAL_ENABLED=true after proper auth is implemented.
-// ============================================================================
-const CLIENT_PORTAL_ENABLED =
-  !import.meta.env.PROD || import.meta.env.VITE_CLIENT_PORTAL_ENABLED === "true";
-
-// ============================================================================
-// Phone Normalization (used only for display, NOT for auth or filtering)
-// ============================================================================
-
-/**
- * Normalize phone number to consistent format
- * 08xx -> 62xxxxxxxxxx, +62xx -> 62xxxxxxxxxx, 628xx -> 62xxxxxxxxxx
- */
-function normalizePhone(phone: string | null | undefined): string | null {
-  if (!phone) return null;
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("0")) {
-    return "62" + digits.slice(1);
-  }
-  return digits;
-}
 
 // ============================================================================
 // Types
@@ -137,11 +94,12 @@ export interface ProductionProgress {
   trackingNumber: string | null;
 }
 
+// Photo Selection Types
 export interface PhotoSelection {
   bookingId: string;
   galleryLink: string | null;
-  editingSelections: string;
-  printingSelections: string;
+  editingSelections: string; // Comma-separated photo numbers
+  printingSelections: string; // Comma-separated photo numbers
   additionalNotes: string;
   status: "pending" | "submitted" | "approved";
   submittedAt: string | null;
@@ -150,13 +108,14 @@ export interface PhotoSelection {
 }
 
 interface CustomerContextType {
+  // Customer identification
   customerPhone: string | null;
   customerEmail: string | null;
   isLoggedIn: boolean;
-  isPortalEnabled: boolean;
   login: (phone: string, email?: string) => Promise<boolean>;
   logout: () => void;
 
+  // Booking data
   bookings: CustomerBooking[];
   currentBooking: CustomerBooking | null;
   bookingDetails: CustomerBookingDetails | null;
@@ -164,31 +123,21 @@ interface CustomerContextType {
   photoSelection: PhotoSelection | null;
   payments: CustomerPayment[];
 
+  // Loading states
   isLoading: boolean;
   isSubmitting: boolean;
   error: string | null;
 
+  // Actions
   refreshBookings: () => Promise<void>;
-  uploadPelunasanProof: (
-    file: File,
-    amount: number,
-    senderName: string
-  ) => Promise<{ success: boolean; error?: string }>;
-  uploadFinalPayment: (
-    file: File,
-    amount: number,
-    senderName: string
-  ) => Promise<{ success: boolean; error?: string }>;
-  updatePhotoSelection: (updates: Partial<PhotoSelection>) => {
-    success: boolean;
-    error?: string;
-  };
+  uploadPelunasanProof: (file: File, amount: number, senderName: string) => Promise<{ success: boolean; error?: string }>;
+  uploadFinalPayment: (file: File, amount: number, senderName: string) => Promise<{ success: boolean; error?: string }>;
+  updatePhotoSelection: (updates: Partial<PhotoSelection>) => { success: boolean; error?: string };
   submitPhotoSelection: () => { success: boolean; error?: string };
 }
 
-// ============================================================================
-// Constants
-// ============================================================================
+const CUSTOMER_PHONE_KEY = "danivisual_customer_phone";
+const CUSTOMER_EMAIL_KEY = "danivisual_customer_email";
 
 const defaultProductionProgress: ProductionProgress = {
   currentStep: "Menunggu Konfirmasi DP",
@@ -213,21 +162,26 @@ const defaultProductionProgress: ProductionProgress = {
 const CustomerContext = createContext<CustomerContextType | undefined>(undefined);
 
 export function CustomerProvider({ children }: { children: ReactNode }) {
-  // Customer identification (DEV-only session tracking)
-  // NOTE: In production, this should be replaced with Supabase Auth session.
-  // Raw phone in localStorage is NOT a secure auth mechanism.
-  const [customerPhone, setCustomerPhone] = useState<string | null>(null);
-  const [customerEmail, setCustomerEmail] = useState<string | null>(null);
+  // Customer identification
+  const [customerPhone, setCustomerPhone] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(CUSTOMER_PHONE_KEY);
+    }
+    return null;
+  });
+  const [customerEmail, setCustomerEmail] = useState<string | null>(() => {
+    if (typeof window !== "undefined") {
+      return localStorage.getItem(CUSTOMER_EMAIL_KEY);
+    }
+    return null;
+  });
 
   // Booking data
   const [bookings, setBookings] = useState<CustomerBooking[]>([]);
   const [currentBooking, setCurrentBooking] = useState<CustomerBooking | null>(null);
-  const [bookingDetails, setBookingDetails] = useState<CustomerBookingDetails | null>(
-    null
-  );
+  const [bookingDetails, setBookingDetails] = useState<CustomerBookingDetails | null>(null);
   const [payments, setPayments] = useState<CustomerPayment[]>([]);
-  const [productionProgress, setProductionProgress] =
-    useState<ProductionProgress | null>(null);
+  const [productionProgress, setProductionProgress] = useState<ProductionProgress | null>(null);
   const [photoSelection, setPhotoSelection] = useState<PhotoSelection | null>(null);
 
   // Loading states
@@ -235,11 +189,11 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isLoggedIn = Boolean(customerPhone) && CLIENT_PORTAL_ENABLED;
+  const isLoggedIn = Boolean(customerPhone);
 
   // Load bookings when customer is logged in
   useEffect(() => {
-    if (customerPhone && CLIENT_PORTAL_ENABLED) {
+    if (customerPhone) {
       loadBookings();
     }
   }, [customerPhone]);
@@ -256,39 +210,18 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   // Login/Logout
   // ============================================================================
 
-  /**
-   * Login via Supabase Auth (JWT-based).
-   *
-   * SECURITY: In production, this is BLOCKED by CLIENT_PORTAL_ENABLED check.
-   * This flow is only for DEV/INTERNAL use.
-   *
-   * Production activation steps:
-   * 1. Customer registers/logs in via Supabase Auth (email/password or magic link)
-   * 2. Customer record must be linked to auth.users via customers.auth_id
-   * 3. Set VITE_CLIENT_PORTAL_ENABLED=true in production .env
-   * 4. Remove CLIENT_PORTAL_DISABLED guard in CustomerLogin.tsx
-   */
   const login = async (phone: string, email?: string): Promise<boolean> => {
-    // PRODUCTION GUARD: Block phone-only login in production builds
-    if (!CLIENT_PORTAL_ENABLED) {
-      setError("Client Portal belum diaktifkan. Hubungi admin untuk akses.");
-      return false;
-    }
-
     setIsLoading(true);
     setError(null);
 
-    // DEV-ONLY: Store phone for session tracking
-    // NOTE: In production, customer auth uses Supabase Auth JWT.
-    // This phone-based session is NOT a secure auth mechanism.
-    if (import.meta.env.DEV) {
-      const normalizedPhone = normalizePhone(phone) || phone.trim();
-      setCustomerPhone(normalizedPhone);
-      if (email) setCustomerEmail(email);
-    }
+    // Store customer identification
+    setCustomerPhone(phone);
+    if (email) setCustomerEmail(email);
+    localStorage.setItem(CUSTOMER_PHONE_KEY, phone);
+    if (email) localStorage.setItem(CUSTOMER_EMAIL_KEY, email);
 
-    // Load bookings via Edge Function with JWT auth
-    await loadBookingsWithAuth();
+    // Load bookings
+    await loadBookings();
 
     setIsLoading(false);
     return bookings.length > 0;
@@ -302,180 +235,93 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     setBookingDetails(null);
     setPayments([]);
     setProductionProgress(null);
-    setError(null);
+    localStorage.removeItem(CUSTOMER_PHONE_KEY);
+    localStorage.removeItem(CUSTOMER_EMAIL_KEY);
   };
 
   // ============================================================================
-  // Load Bookings via Edge Function with JWT Auth
+  // Load Bookings from Supabase
   // ============================================================================
 
-  /**
-   * Load bookings for the authenticated customer via Edge Function.
-   *
-   * SECURITY (2026-06-05):
-   * - Uses Supabase Auth JWT from localStorage as Bearer token
-   * - Edge Function verifies JWT and looks up customer by auth_id
-   * - Bookings are scoped by customer_id at the SQL level (no client-side filter)
-   * - If Edge Function fails in production: show error, do NOT expose data
-   *
-   * Auth flow:
-   * 1. Customer logs in via Supabase Auth (email/password or magic link)
-   * 2. Session token stored in localStorage by Supabase Auth
-   * 3. This function reads the session token and sends as Bearer token
-   * 4. Edge Function verifies token, looks up customer, returns scoped data
-   */
-  const loadBookingsWithAuth = async (phone?: string) => {
+  const loadBookings = async () => {
+    if (!customerPhone) return;
+
     setIsLoading(true);
     setError(null);
 
     try {
-      if (!isSupabaseConfigured()) {
-        if (!import.meta.env.DEV) {
-          setError("Database belum dikonfigurasi. Hubungi admin.");
-          setBookings([]);
-          setCurrentBooking(null);
+      if (isSupabaseConfigured()) {
+        const client = getSupabaseClient();
+        if (client) {
+          // Load bookings for this customer
+          const { data: bookingsData, error: bookingsError } = await client
+            .from("bookings")
+            .select("*")
+            .eq("customer_phone", customerPhone)
+            .order("created_at", { ascending: false });
+
+          if (bookingsError) {
+            throw new Error("Gagal memuat booking: " + bookingsError.message);
+          }
+
+          if (bookingsData && bookingsData.length > 0) {
+            const loadedBookings = bookingsData.map((row) => ({
+              id: row.id,
+              orderNumber: row.order_number,
+              customerName: row.customer_name,
+              customerEmail: row.customer_email,
+              customerPhone: row.customer_phone,
+              packageName: row.package_name,
+              packagePrice: row.package_price,
+              serviceType: row.service_type || "",
+              addonIds: row.addon_ids || [],
+              addonTotal: row.addon_total || 0,
+              eventDate: row.event_date,
+              eventTime: row.event_time,
+              eventLocation: row.event_location,
+              eventType: row.event_type,
+              totalAmount: row.total_amount,
+              dpAmount: row.dp_amount,
+              paidAmount: row.paid_amount,
+              remainingAmount: row.remaining_amount,
+              status: row.status as CustomerBooking["status"],
+              deliveryMethod: row.delivery_method || "",
+              packingFee: row.packing_fee || 0,
+              notes: row.notes || "",
+              createdAt: row.created_at,
+              updatedAt: row.updated_at,
+            }));
+
+            setBookings(loadedBookings);
+
+            // Set most recent booking as current
+            setCurrentBooking(loadedBookings[0]);
+
+            // Load booking details for current booking
+            if (loadedBookings[0]) {
+              await loadBookingDetails(loadedBookings[0].id);
+              await loadPayments(loadedBookings[0].orderNumber);
+            }
+          } else {
+            setBookings([]);
+            setCurrentBooking(null);
+          }
+
           setIsLoading(false);
           return;
         }
-        setBookings([]);
-        setCurrentBooking(null);
-        setIsLoading(false);
-        return;
       }
 
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      if (!supabaseUrl || !supabaseAnonKey) {
-        if (!import.meta.env.DEV) {
-          setError("Konfigurasi tidak lengkap. Hubungi admin.");
-          setBookings([]);
-          setCurrentBooking(null);
-          setIsLoading(false);
-          return;
-        }
-        setBookings([]);
-        setCurrentBooking(null);
-        setIsLoading(false);
-        return;
-      }
-
-      // =============================================================================
-      // Get Supabase Auth session token for Bearer auth
-      // SECURITY: This reads the session from Supabase Auth's localStorage.
-      // The Edge Function will verify this token server-side.
-      // =============================================================================
-      const client: SupabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
-        auth: {
-          persistSession: true,
-          autoRefreshToken: true,
-        },
-      });
-
-      const { data: sessionData } = await client.auth.getSession();
-      const sessionToken = sessionData?.session?.access_token;
-
-      if (!sessionToken) {
-        // No authenticated session — show login prompt
-        setError("Silakan login terlebih dahulu.");
-        setBookings([]);
-        setCurrentBooking(null);
-        setIsLoading(false);
-        return;
-      }
-
-      // =============================================================================
-      // Call Edge Function with Bearer token (JWT auth)
-      // =============================================================================
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/customer-bookings`,
-        {
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${sessionToken}`,
-            apikey: supabaseAnonKey,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorBody = await response.json().catch(() => ({}));
-        console.error(
-          "[CustomerContext] Edge Function error:",
-          response.status,
-          errorBody.error
-        );
-
-        if (response.status === 401) {
-          setError("Sesi login berakhir. Silakan login kembali.");
-          await client.auth.signOut();
-        } else if (response.status === 403) {
-          setError("Akun customer tidak ditemukan. Hubungi Danivisual.");
-        } else {
-          setError(
-            "Data booking belum bisa dimuat. Silakan coba lagi atau hubungi admin."
-          );
-        }
-        setBookings([]);
-        setCurrentBooking(null);
-        setIsLoading(false);
-        return;
-      }
-
-      const data = await response.json();
-
-      if (data.bookings && data.bookings.length > 0) {
-        const loadedBookings = data.bookings.map((row: CustomerBooking) => ({
-          id: row.id,
-          orderNumber: row.orderNumber,
-          customerName: row.customerName,
-          customerEmail: row.customerEmail,
-          customerPhone: row.customerPhone,
-          packageName: row.packageName,
-          packagePrice: row.packagePrice,
-          serviceType: row.serviceType || "",
-          addonIds: row.addonIds || [],
-          addonTotal: row.addonTotal || 0,
-          eventDate: row.eventDate,
-          eventTime: row.eventTime,
-          eventLocation: row.eventLocation,
-          eventType: row.eventType,
-          totalAmount: row.totalAmount,
-          dpAmount: row.dpAmount,
-          paidAmount: row.paidAmount,
-          remainingAmount: row.remainingAmount,
-          status: row.status as CustomerBooking["status"],
-          deliveryMethod: row.deliveryMethod || "",
-          packingFee: row.packingFee || 0,
-          notes: row.notes || "",
-          createdAt: row.createdAt,
-          updatedAt: row.updatedAt,
-        }));
-
-        setBookings(loadedBookings);
-        setCurrentBooking(loadedBookings[0]);
-
-        if (loadedBookings[0]) {
-          await loadBookingDetails(loadedBookings[0].id);
-          await loadPayments(loadedBookings[0].orderNumber);
-        }
-      } else {
-        setBookings([]);
-        setCurrentBooking(null);
-      }
-
-      setIsLoading(false);
-    } catch (err) {
-      console.error("[CustomerContext] Load bookings error:", err);
-      setError("Terjadi kesalahan. Silakan coba lagi atau hubungi admin.");
+      // Fallback: no data
       setBookings([]);
       setCurrentBooking(null);
       setIsLoading(false);
+    } catch (err) {
+      console.error("[CustomerContext] Load bookings error:", err);
+      setError(err instanceof Error ? err.message : "Unknown error");
+      setIsLoading(false);
     }
   };
-
-  // Backward-compatible alias (now uses JWT auth internally)
-  const loadBookings = loadBookingsWithAuth;
 
   const loadBookingDetails = async (bookingId: string) => {
     if (!isSupabaseConfigured()) {
@@ -566,7 +412,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   });
 
   // ============================================================================
-  // Load Production Progress
+  // Load Production Progress from productionService/Supabase
   // ============================================================================
 
   const applyProductionRecordToPhotoSelection = (record: ProductionRecord) => {
@@ -578,40 +424,23 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     });
   };
 
-  const mapProductionRecordToProgress = (
-    record: ProductionRecord
-  ): ProductionProgress => {
-    const stepOrder = [
-      "pelunasan",
-      "photoSorting",
-      "editing",
-      "printing",
-      "finishing",
-      "delivery",
-    ] as const;
+  const mapProductionRecordToProgress = (record: ProductionRecord): ProductionProgress => {
+    const stepOrder = ["pelunasan", "photoSorting", "editing", "printing", "finishing", "delivery"] as const;
     const completedSteps = stepOrder
       .map((stepId) => record.steps[stepId])
       .filter((step) => step.status === "completed")
       .map((step) => step.name);
     const activeStep =
-      stepOrder
-        .map((stepId) => record.steps[stepId])
-        .find((step) => step.status === "in_progress") ||
-      stepOrder
-        .map((stepId) => record.steps[stepId])
-        .find((step) => step.status === "waiting");
+      stepOrder.map((stepId) => record.steps[stepId]).find((step) => step.status === "in_progress") ||
+      stepOrder.map((stepId) => record.steps[stepId]).find((step) => step.status === "waiting");
     const allCompleted = completedSteps.length === stepOrder.length;
-    const currentStep = allCompleted
-      ? "Selesai"
-      : activeStep?.name || "Menunggu Konfirmasi DP";
-    const estimatedDate =
-      activeStep?.estimatedDate || record.steps.delivery.estimatedDate || null;
+    const currentStep = allCompleted ? "Selesai" : activeStep?.name || "Menunggu Konfirmasi DP";
+    const estimatedDate = activeStep?.estimatedDate || record.steps.delivery.estimatedDate || null;
 
     return {
       currentStep,
       progressPercent: getProgressPercentage(record),
-      sneakPeekStatus:
-        record.steps.pelunasan.status === "completed" ? "available" : "locked",
+      sneakPeekStatus: record.steps.pelunasan.status === "completed" ? "available" : "locked",
       googleDriveLink: record.googleDriveLink,
       galleryLink: record.galleryLink,
       customerNotes: record.customerNotes,
@@ -619,10 +448,8 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       completedSteps,
       completedStep: completedSteps[completedSteps.length - 1] || null,
       photoSortingStatus: record.steps.photoSorting.status,
-      deliveryStatus:
-        record.steps.delivery.status === "completed" ? "delivered" : "pending",
-      deliveryEstimate:
-        record.steps.delivery.estimatedDate || "7-14 hari kerja setelah finalisasi",
+      deliveryStatus: record.steps.delivery.status === "completed" ? "delivered" : "pending",
+      deliveryEstimate: record.steps.delivery.estimatedDate || "7-14 hari kerja setelah finalisasi",
       trackingNumber: null,
     };
   };
@@ -691,15 +518,17 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   };
 
   // ============================================================================
-  // Upload Payment Proof
+  // Upload Payment Proof with Validation
   // ============================================================================
 
   const validateFile = (file: File): string | null => {
+    // Max size: 5MB
     const maxSize = 5 * 1024 * 1024;
     if (file.size > maxSize) {
       return "Ukuran file maksimal 5MB";
     }
 
+    // Allowed types
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "application/pdf"];
     if (!allowedTypes.includes(file.type)) {
       return "Format file harus JPG, PNG, WebP, atau PDF";
@@ -718,11 +547,13 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "Booking tidak ditemukan" };
     }
 
+    // Validate file
     const validationError = validateFile(file);
     if (validationError) {
       return { success: false, error: validationError };
     }
 
+    // Validate amount
     if (!amount || amount <= 0) {
       return { success: false, error: "Nominal tidak valid" };
     }
@@ -730,16 +561,9 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     setIsSubmitting(true);
 
     try {
+      // Check if Supabase is configured
       if (!isSupabaseConfigured()) {
-        // PRODUCTION: No localStorage fallback - require Supabase
-        if (!import.meta.env.DEV) {
-          setIsSubmitting(false);
-          return {
-            success: false,
-            error: "Database belum dikonfigurasi. Hubungi admin.",
-          };
-        }
-        // DEV-ONLY: Store in localStorage as development fallback
+        // Fallback: store in localStorage
         const localPayment = {
           id: generateLocalId(),
           bookingId: currentBooking.id,
@@ -756,24 +580,20 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
           senderName,
         };
 
+        // Store in localStorage
         const storedPayments = localStorage.getItem("danivisual_local_payments");
         const existingPayments = storedPayments ? JSON.parse(storedPayments) : [];
         existingPayments.push(localPayment);
-        localStorage.setItem(
-          "danivisual_local_payments",
-          JSON.stringify(existingPayments)
-        );
+        localStorage.setItem("danivisual_local_payments", JSON.stringify(existingPayments));
 
+        // Also store in pending payments for sync
         const storedPending = localStorage.getItem("danivisual_pending_payments");
         const pendingPayments = storedPending ? JSON.parse(storedPending) : {};
         if (!pendingPayments[currentBooking.id]) {
           pendingPayments[currentBooking.id] = [];
         }
         pendingPayments[currentBooking.id].push(localPayment);
-        localStorage.setItem(
-          "danivisual_pending_payments",
-          JSON.stringify(pendingPayments)
-        );
+        localStorage.setItem("danivisual_pending_payments", JSON.stringify(pendingPayments));
 
         setIsSubmitting(false);
         return { success: true };
@@ -794,10 +614,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
         .upload(path, file, { cacheControl: "3600", upsert: false });
 
       if (uploadError) {
-        console.warn(
-          "[CustomerContext] Storage upload error:",
-          uploadError.message
-        );
+        console.warn("[CustomerContext] Storage upload error:", uploadError.message);
         setIsSubmitting(false);
         return { success: false, error: "Gagal upload file. Coba lagi." };
       }
@@ -853,10 +670,12 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     return uploadPayment(file, amount, senderName, "final_payment");
   };
 
+  // Helper function to generate local ID
   const generateLocalId = (): string => {
     return `local_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
   };
 
+  // Helper function to convert file to base64
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -874,21 +693,20 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     if (!currentBooking) return;
 
     try {
-      // DEV-ONLY: Check localStorage for admin-created data
-      if (import.meta.env.DEV) {
-        const stored = localStorage.getItem("danivisual_photo_selections");
-        if (stored) {
-          const selections = JSON.parse(stored);
-          const selection = selections.find(
-            (s: PhotoSelection) => s.bookingId === currentBooking.id
-          );
-          if (selection) {
-            setPhotoSelection(selection);
-            return;
-          }
+      // First check localStorage for admin-created data
+      const stored = localStorage.getItem("danivisual_photo_selections");
+      if (stored) {
+        const selections = JSON.parse(stored);
+        const selection = selections.find(
+          (s: PhotoSelection) => s.bookingId === currentBooking.id
+        );
+        if (selection) {
+          setPhotoSelection(selection);
+          return;
         }
       }
 
+      // Default empty selection
       setPhotoSelection({
         bookingId: currentBooking.id,
         galleryLink: null,
@@ -915,25 +733,20 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
     const updatedSelection = { ...photoSelection, ...updates };
     setPhotoSelection(updatedSelection);
 
-    // DEV-ONLY: Save to localStorage
-    if (import.meta.env.DEV) {
-      const stored = localStorage.getItem("danivisual_photo_selections");
-      const selections = stored ? JSON.parse(stored) : [];
-      const existingIndex = selections.findIndex(
-        (s: PhotoSelection) => s.bookingId === currentBooking.id
-      );
+    // Save to localStorage
+    const stored = localStorage.getItem("danivisual_photo_selections");
+    const selections = stored ? JSON.parse(stored) : [];
+    const existingIndex = selections.findIndex(
+      (s: PhotoSelection) => s.bookingId === currentBooking.id
+    );
 
-      if (existingIndex >= 0) {
-        selections[existingIndex] = updatedSelection;
-      } else {
-        selections.push(updatedSelection);
-      }
-
-      localStorage.setItem(
-        "danivisual_photo_selections",
-        JSON.stringify(selections)
-      );
+    if (existingIndex >= 0) {
+      selections[existingIndex] = updatedSelection;
+    } else {
+      selections.push(updatedSelection);
     }
+
+    localStorage.setItem("danivisual_photo_selections", JSON.stringify(selections));
 
     return { success: true };
   };
@@ -943,10 +756,12 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       return { success: false, error: "Booking tidak ditemukan" };
     }
 
-    return updatePhotoSelection({
+    const result = updatePhotoSelection({
       status: "submitted",
       submittedAt: new Date().toISOString(),
     });
+
+    return result;
   };
 
   // ============================================================================
@@ -954,8 +769,7 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
   // ============================================================================
 
   const refreshBookings = async () => {
-    // Uses JWT auth — no phone needed for authenticated customers
-    await loadBookingsWithAuth();
+    await loadBookings();
   };
 
   // ============================================================================
@@ -967,7 +781,6 @@ export function CustomerProvider({ children }: { children: ReactNode }) {
       customerPhone,
       customerEmail,
       isLoggedIn,
-      isPortalEnabled: CLIENT_PORTAL_ENABLED,
       login,
       logout,
       bookings,
@@ -1017,12 +830,16 @@ export function useCustomer() {
 }
 
 // ============================================================================
-// Helpers
+// Helper: Check if booking is fully paid
 // ============================================================================
 
 export function isBookingFullyPaid(booking: CustomerBooking): boolean {
   return booking.paidAmount >= booking.totalAmount;
 }
+
+// ============================================================================
+// Helper: Get payment status
+// ============================================================================
 
 export function getPaymentStatus(payments: CustomerPayment[]) {
   const dpPayment = payments.find((p) => p.type === "dp");
@@ -1034,6 +851,6 @@ export function getPaymentStatus(payments: CustomerPayment[]) {
   return {
     dpVerified: Boolean(dpVerified),
     totalPaid: remainingAmount,
-    isFullyPaid: dpVerified && remainingAmount >= DP_AMOUNT * 10,
+    isFullyPaid: dpVerified && remainingAmount >= DP_AMOUNT * 10, // Assuming total is ~10x DP
   };
 }

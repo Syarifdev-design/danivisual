@@ -3,31 +3,33 @@ import { useEffect, useState } from "react";
 import { BriefcaseBusiness, CircleHelp, Home, Images, Info, Menu, Phone, UserRound, X } from "lucide-react";
 import { useAuth } from "../contexts/AuthContext";
 import BrandLogo from "./BrandLogo";
-import { LANGUAGE_CHANGE_EVENT } from "./FloatingWhatsApp";
 import { mediaAssets } from "../data/mediaAssets";
-
-const LANGUAGE_STORAGE_KEY = "danivisual_language";
+import { useLanguage } from "../contexts/LanguageContext";
+import { useContent } from "../contexts/ContentContext";
 
 export default function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [hasScrolled, setHasScrolled] = useState(false);
-  const [language, setLanguage] = useState<"ID" | "EN">(
-    () => (localStorage.getItem(LANGUAGE_STORAGE_KEY) as "ID" | "EN") || "ID"
-  );
-  const { isAuthenticated } = useAuth();
+  const { t } = useLanguage();
+  const { isAuthenticated, user } = useAuth();
+  const { getField, getImage } = useContent();
   const isHomeHero = location.pathname === "/" && !hasScrolled && !mobileMenuOpen;
 
   const navLinks = [
-    { label: language === "ID" ? "Beranda" : "Home", path: "/", icon: Home },
-    { label: language === "ID" ? "Portofolio" : "Portfolio", path: "/portfolio", icon: Images },
-    { label: language === "ID" ? "Layanan" : "Services", path: "/services", icon: BriefcaseBusiness },
-    { label: language === "ID" ? "Tentang" : "About", path: "/about", icon: Info },
-    { label: "FAQ", path: "/faq", icon: CircleHelp },
-    { label: language === "ID" ? "Kontak" : "Contact", path: "/contact", icon: Phone },
+    { label: getField("navigation", "main-menu", "home", t({ ID: "Beranda", EN: "Home" })), path: "/", icon: Home },
+    { label: getField("navigation", "main-menu", "portfolio", t({ ID: "Portofolio", EN: "Portfolio" })), path: "/portfolio", icon: Images },
+    { label: getField("navigation", "main-menu", "services", t({ ID: "Layanan", EN: "Services" })), path: "/services", icon: BriefcaseBusiness },
+    { label: getField("navigation", "main-menu", "about", t({ ID: "Tentang", EN: "About" })), path: "/about", icon: Info },
+    { label: getField("navigation", "main-menu", "faq", "FAQ"), path: "/faq", icon: CircleHelp },
+    { label: getField("navigation", "main-menu", "contact", t({ ID: "Kontak", EN: "Contact" })), path: "/contact", icon: Phone },
   ];
-  const bookingLabel = language === "ID" ? "Booking" : "Book Now";
-  const myBookingLabel = language === "ID" ? "Booking Saya" : "My Booking";
+  const bookingLabel = getField("navigation", "actions", "reserve", t({ ID: "Reservasi", EN: "Reserve Date" }));
+  const myBookingLabel = getField("navigation", "actions", "client-lounge", t({ ID: "Ruang Klien", EN: "Client Lounge" }));
+  const loginLabel = getField("navigation", "actions", "login", "Login");
+  const whatsappAdminLabel = getField("navigation", "actions", "whatsapp-admin", "WhatsApp Admin");
+  const whatsappUrl = getField("contact", "details", "whatsapp_url", "https://wa.me/6282337279636");
+  const authenticatedPath = user?.role === "admin" ? "/admin" : "/dashboard/my-booking";
 
   const isActive = (path: string) => {
     if (path === "/") return location.pathname === "/";
@@ -47,21 +49,6 @@ export default function Navbar() {
       document.body.style.overflow = "";
     };
   }, [mobileMenuOpen]);
-
-  useEffect(() => {
-    const syncLanguage = (event?: Event) => {
-      const customEvent = event as CustomEvent<"ID" | "EN">;
-      const nextLanguage = customEvent?.detail || (localStorage.getItem(LANGUAGE_STORAGE_KEY) as "ID" | "EN") || "ID";
-      setLanguage(nextLanguage);
-    };
-
-    window.addEventListener(LANGUAGE_CHANGE_EVENT, syncLanguage);
-    window.addEventListener("storage", syncLanguage);
-    return () => {
-      window.removeEventListener(LANGUAGE_CHANGE_EVENT, syncLanguage);
-      window.removeEventListener("storage", syncLanguage);
-    };
-  }, []);
 
   return (
     <nav
@@ -116,7 +103,7 @@ export default function Navbar() {
             </Link>
             {isAuthenticated ? (
               <Link
-                to="/dashboard/my-booking"
+                to={authenticatedPath}
                 translate="no"
                 className={`notranslate whitespace-nowrap text-[13px] px-4 py-2.5 border transition-all rounded-sm xl:px-6 xl:text-sm ${
                   isHomeHero
@@ -124,7 +111,7 @@ export default function Navbar() {
                     : "border-premium-beige text-foreground hover:bg-premium-beige/10"
                 }`}
               >
-                {myBookingLabel}
+                {user?.role === "admin" ? "Admin Panel" : myBookingLabel}
               </Link>
             ) : (
               <Link
@@ -136,7 +123,7 @@ export default function Navbar() {
                     : "border-premium-beige text-foreground hover:bg-premium-beige/10"
                 }`}
               >
-                Login
+                {loginLabel}
               </Link>
             )}
           </div>
@@ -172,8 +159,9 @@ export default function Navbar() {
 
             <div className="min-h-0 flex-1 overflow-y-auto bg-white px-5 py-4 sm:px-6">
               <div className="grid grid-cols-1 gap-2 min-[560px]:grid-cols-2">
-                {[...navLinks, { label: isAuthenticated ? myBookingLabel : "Login", path: isAuthenticated ? "/dashboard/my-booking" : "/login", icon: UserRound }].map((link) => {
+                {[...navLinks, { label: isAuthenticated ? (user?.role === "admin" ? "Admin Panel" : myBookingLabel) : loginLabel, path: isAuthenticated ? authenticatedPath : "/login", icon: UserRound }].map((link, index) => {
                   const Icon = link.icon;
+                  const active = isActive(link.path);
 
                   return (
                   <Link
@@ -181,16 +169,18 @@ export default function Navbar() {
                     to={link.path}
                     onClick={() => setMobileMenuOpen(false)}
                     translate="no"
-                    className={`group flex min-h-11 items-center gap-3 border px-4 py-2.5 transition ${
-                      isActive(link.path)
-                        ? "border-premium-beige bg-background-soft"
+                    className={`mobile-nav-card group relative flex min-h-11 items-center gap-3 overflow-hidden border px-4 py-2.5 transition ${
+                      active
+                        ? "is-active border-premium-beige bg-background-soft"
                         : "border-border-line hover:bg-background-soft"
                     }`}
+                    style={{ animationDelay: `${index * 55}ms` }}
                   >
-                    <span className="flex h-7 w-7 shrink-0 items-center justify-center border border-premium-beige/45 bg-white text-premium-beige transition group-hover:border-premium-beige">
+                    <span className="mobile-nav-card-accent" />
+                    <span className="mobile-nav-icon flex h-7 w-7 shrink-0 items-center justify-center border border-premium-beige/45 bg-white text-premium-beige transition group-hover:border-premium-beige">
                       <Icon size={14} strokeWidth={1.7} />
                     </span>
-                    <span className="notranslate font-medium leading-none text-[15px] tracking-wide sm:text-base" style={{ fontFamily: "var(--font-body)" }}>
+                    <span className="notranslate relative z-10 font-medium leading-none text-[15px] tracking-wide sm:text-base" style={{ fontFamily: "var(--font-body)" }}>
                       {link.label}
                     </span>
                   </Link>
@@ -200,7 +190,7 @@ export default function Navbar() {
 
               <div className="mt-5 hidden overflow-hidden border border-border-line min-h-[640px]:block">
                 <img
-                  src={mediaAssets.ui.menu}
+                  src={getImage("navigation_mobile_menu_image", mediaAssets.ui.menu)}
                   alt="Danivisual editorial menu"
                   className="h-28 w-full object-cover"
                 />
@@ -217,11 +207,11 @@ export default function Navbar() {
                 <span className="notranslate">{bookingLabel}</span>
               </Link>
               <a
-                href="https://wa.me/6282337279636"
+                href={whatsappUrl}
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex min-h-12 items-center justify-center border border-border-line bg-white px-6 py-3 text-sm text-foreground"
               >
-                WhatsApp Admin
+                {whatsappAdminLabel}
               </a>
             </div>
           </div>

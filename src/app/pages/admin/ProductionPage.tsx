@@ -1,5 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
-import { useSearchParams } from "react-router";
+import { useState, useMemo, useEffect, useCallback } from "react";
 import {
   Search,
   Filter,
@@ -25,8 +24,6 @@ import {
   Link as LinkIcon,
   Loader2,
   Shield,
-  LayoutGrid,
-  CalendarClock,
 } from "lucide-react";
 import { useAdmin } from "../../contexts/AdminContext";
 import { useEmployees } from "../../contexts/EmployeesContext";
@@ -41,11 +38,6 @@ import {
   isOperationalStaffRole,
   useEmployeeIdWarning,
 } from "../../contexts/AuthContext";
-// Additional permissions from utils
-import {
-  canViewAllProjects,
-  canManageProjects,
-} from "../../utils/permissions";
 import AdminStatusBadge from "../../admin/components/AdminStatusBadge";
 import type { PhotoSelection } from "../../contexts/CustomerContext";
 import {
@@ -176,26 +168,6 @@ export default function ProductionPage() {
   const [taskAction, setTaskAction] = useState<"start" | "submit" | "revision" | "complete" | null>(null);
   const [actionNote, setActionNote] = useState("");
 
-  // Tab state
-  const [searchParams] = useSearchParams();
-  const urlTab = searchParams.get("tab");
-
-  // Determine default tab based on role
-  const canViewAllProjectsAccess = useMemo(() => canViewAllProjects(userRole), [userRole]);
-  const isOperationalUser = useMemo(() => isOperationalStaffRole(userRole), [userRole]);
-
-  // Default tab: Projects for admin, Tasks for staff
-  const defaultTab = (isOperationalUser || !canViewAllProjectsAccess) ? "tasks" : "projects";
-  const [activeTab, setActiveTab] = useState<"projects" | "tasks" | "kanban" | "deadlines">(urlTab as any || defaultTab);
-
-  // Sync tab from URL
-  useEffect(() => {
-    if (urlTab && ["projects", "tasks", "kanban", "deadlines"].includes(urlTab)) {
-      setActiveTab(urlTab as any);
-    }
-  }, [urlTab]);
-
-  // Search state
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
   const [selectedRecord, setSelectedRecord] = useState<ProductionRecord | null>(null);
@@ -622,190 +594,25 @@ export default function ProductionPage() {
     return Math.round((completedCount / steps.length) * 100);
   };
 
-  // Computed summary statistics for admin
-  const summaryStats = useMemo(() => {
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const todayEnd = new Date(today);
-    todayEnd.setHours(23, 59, 59, 999);
-    const weekEnd = new Date(today);
-    weekEnd.setDate(weekEnd.getDate() + 7);
-    const monthStart = new Date(today.getFullYear(), today.getMonth(), 1);
-
-    // Project stats
-    const totalProjects = productionRecords.length;
-    const inProgressProjects = productionRecords.filter(r => {
-      const status = getCurrentProductionStatus(r);
-      return status !== "completed" && r.steps.delivery.status !== "completed";
-    }).length;
-    const overdueProjects = productionRecords.filter(r => {
-      const eventDate = new Date(r.eventDate);
-      return eventDate < today && r.steps.delivery.status !== "completed";
-    }).length;
-    const completedThisMonth = productionRecords.filter(r => {
-      if (r.steps.delivery.status !== "completed" || !r.steps.delivery.completedAt) return false;
-      const completedDate = new Date(r.steps.delivery.completedAt);
-      return completedDate >= monthStart;
-    }).length;
-
-    // Task stats
-    const totalTasks = tasks.length;
-    const inProgressTasks = tasks.filter(t => t.status === "in_progress").length;
-    const submittedTasks = tasks.filter(t => t.status === "submitted").length;
-    const revisionTasks = tasks.filter(t => t.status === "revision").length;
-    const needReviewTasks = tasks.filter(t => t.status === "submitted").length;
-    const overdueTasks = tasks.filter(t => {
-      const deadline = new Date(t.deadline);
-      return deadline < today && t.status !== "completed";
-    }).length;
-
-    return {
-      // Project stats
-      totalProjects,
-      inProgressProjects,
-      overdueProjects,
-      completedThisMonth,
-      // Task stats
-      totalTasks,
-      inProgressTasks,
-      submittedTasks,
-      revisionTasks,
-      needReviewTasks,
-      overdueTasks,
-      // Date helpers
-      today,
-      todayEnd,
-      weekEnd,
-      monthStart,
-    };
-  }, [productionRecords, tasks]);
-
   return (
     <div className="space-y-6">
       {/* Page Header */}
       <div className="rounded-2xl border border-premium-beige/25 bg-white/86 p-5 shadow-[0_18px_60px_rgba(40,28,16,0.08)] backdrop-blur sm:p-6">
         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
           <div>
-            <p className="text-xs uppercase tracking-[0.24em] text-premium-beige">
-              {isOperationalUser ? "Production Tasks" : "Production Management"}
-            </p>
-            <h2 className="mt-2 text-3xl" style={{ fontFamily: "var(--font-heading)" }}>
-              {isOperationalUser ? "Production Tasks" : "Production"}
-            </h2>
+            <p className="text-xs uppercase tracking-[0.24em] text-premium-beige">Production Management</p>
+            <h2 className="mt-2 text-3xl" style={{ fontFamily: "var(--font-heading)" }}>Production</h2>
             <p className="mt-2 max-w-2xl text-sm leading-relaxed text-foreground-secondary">
-              {isOperationalUser
-                ? "Lihat dan selesaikan tugas produksi Anda."
-                : "Kelola project produksi, tugas staff, deadline, dan progress delivery dalam satu workflow terpusat."}
+              Kelola alur produksi dari pelunasan, sorting, editing, cetak, finishing, sampai delivery.
             </p>
           </div>
-        </div>
-
-        {/* Summary Cards - Admin View */}
-        {!isOperationalUser && (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Total Project</p>
-              <p className="mt-1 text-2xl font-bold text-foreground">{summaryStats.totalProjects}</p>
-            </div>
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">In Progress</p>
-              <p className="mt-1 text-2xl font-bold text-amber-600">{summaryStats.inProgressProjects}</p>
-            </div>
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Need Review</p>
-              <p className="mt-1 text-2xl font-bold text-blue-600">{summaryStats.needReviewTasks}</p>
-            </div>
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Overdue</p>
-              <p className="mt-1 text-2xl font-bold text-red-600">{summaryStats.overdueProjects + summaryStats.overdueTasks}</p>
-            </div>
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Completed (Month)</p>
-              <p className="mt-1 text-2xl font-bold text-emerald-600">{summaryStats.completedThisMonth}</p>
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-3 rounded-full border border-border-line bg-white px-4 py-2">
+              <span className="text-xs text-foreground-secondary">
+                {filteredRecords.length} project
+              </span>
             </div>
           </div>
-        )}
-
-        {/* Summary Cards - Staff View */}
-        {isOperationalUser && (
-          <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4 lg:grid-cols-5">
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Total Tugas</p>
-              <p className="mt-1 text-2xl font-bold text-foreground">{summaryStats.totalTasks}</p>
-            </div>
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">In Progress</p>
-              <p className="mt-1 text-2xl font-bold text-amber-600">{summaryStats.inProgressTasks}</p>
-            </div>
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Submitted</p>
-              <p className="mt-1 text-2xl font-bold text-blue-600">{summaryStats.submittedTasks}</p>
-            </div>
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Revision</p>
-              <p className="mt-1 text-2xl font-bold text-amber-600">{summaryStats.revisionTasks}</p>
-            </div>
-            <div className="rounded-xl border border-border-line bg-background-soft p-3">
-              <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Overdue</p>
-              <p className="mt-1 text-2xl font-bold text-red-600">{summaryStats.overdueTasks}</p>
-            </div>
-          </div>
-        )}
-
-        {/* Tab Navigation */}
-        <div className="mt-4 flex flex-wrap gap-2 border-t border-border-line pt-4">
-          {/* Projects Tab - Admin only */}
-          {canViewAllProjectsAccess && (
-            <button
-              onClick={() => setActiveTab("projects")}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                activeTab === "projects"
-                  ? "bg-dark-premium text-white"
-                  : "text-foreground-secondary hover:bg-premium-beige/10 hover:text-foreground"
-              }`}
-            >
-              <Package size={16} className="mr-2 inline" />
-              Projects
-            </button>
-          )}
-          {/* Tasks Tab - All staff roles */}
-          <button
-            onClick={() => setActiveTab("tasks")}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-              activeTab === "tasks"
-                ? "bg-dark-premium text-white"
-                : "text-foreground-secondary hover:bg-premium-beige/10 hover:text-foreground"
-            }`}
-          >
-            <ListTodo size={16} className="mr-2 inline" />
-            {isOperationalUser ? "Tugas Saya" : "Tasks"}
-          </button>
-          {/* Kanban Tab - Admin only */}
-          {canViewAllProjectsAccess && (
-            <button
-              onClick={() => setActiveTab("kanban")}
-              className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-                activeTab === "kanban"
-                  ? "bg-dark-premium text-white"
-                  : "text-foreground-secondary hover:bg-premium-beige/10 hover:text-foreground"
-              }`}
-            >
-              <LayoutGrid size={16} className="mr-2 inline" />
-              Kanban
-            </button>
-          )}
-          {/* Deadlines Tab - All staff roles */}
-          <button
-            onClick={() => setActiveTab("deadlines")}
-            className={`rounded-xl px-4 py-2 text-sm font-medium transition ${
-              activeTab === "deadlines"
-                ? "bg-dark-premium text-white"
-                : "text-foreground-secondary hover:bg-premium-beige/10 hover:text-foreground"
-            }`}
-          >
-            <CalendarClock size={16} className="mr-2 inline" />
-            Deadlines
-          </button>
         </div>
       </div>
 
@@ -833,7 +640,7 @@ export default function ProductionPage() {
           <Shield size={48} className="mx-auto mb-4 text-red-500" />
           <h2 className="text-xl font-semibold text-red-700">Access Denied</h2>
           <p className="mt-2 text-sm text-red-600">
-            Anda tidak memiliki akses ke halaman Production.
+            Anda tidak memiliki akses ke halaman Production Tasks.
           </p>
         </div>
       )}
@@ -845,491 +652,134 @@ export default function ProductionPage() {
         </div>
       )}
 
-      {/* PROJECTS TAB */}
-      {activeTab === "projects" && canViewAllProjectsAccess && (
-        <>
-          {/* Filters */}
-          <div className="rounded-2xl border border-premium-beige/25 bg-white/86 p-4 shadow-[0_18px_60px_rgba(40,28,16,0.08)] backdrop-blur">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
-              <div className="relative flex-1">
-                <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-secondary" />
-                <input
-                  type="text"
-                  placeholder="Cari nama, order number, atau telepon..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className={`${inputClassName} pl-10`}
-                />
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {productionStatusFilters.map((filter) => (
-                  <button
-                    key={filter.value}
-                    onClick={() => setStatusFilter(filter.value)}
-                    className={`inline-flex min-h-9 items-center rounded-lg border px-3 text-xs font-medium transition ${
-                      statusFilter === filter.value
-                        ? "border-premium-beige/45 bg-premium-beige/10 text-foreground"
-                        : "border-border-line bg-white text-foreground-secondary hover:border-premium-beige/45 hover:text-foreground"
-                    }`}
-                  >
-                    {filter.label}
-                  </button>
-                ))}
-              </div>
-            </div>
+      {/* Filters */}
+      <div className="rounded-2xl border border-premium-beige/25 bg-white/86 p-4 shadow-[0_18px_60px_rgba(40,28,16,0.08)] backdrop-blur">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center">
+          <div className="relative flex-1">
+            <Search size={18} className="absolute left-3 top-1/2 -translate-y-1/2 text-foreground-secondary" />
+            <input
+              type="text"
+              placeholder="Cari nama, order number, atau telepon..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className={`${inputClassName} pl-10`}
+            />
           </div>
+          <div className="flex flex-wrap gap-2">
+            {productionStatusFilters.map((filter) => (
+              <button
+                key={filter.value}
+                onClick={() => setStatusFilter(filter.value)}
+                className={`inline-flex min-h-9 items-center rounded-lg border px-3 text-xs font-medium transition ${
+                  statusFilter === filter.value
+                    ? "border-premium-beige/45 bg-premium-beige/10 text-foreground"
+                    : "border-border-line bg-white text-foreground-secondary hover:border-premium-beige/45 hover:text-foreground"
+                }`}
+              >
+                {filter.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
 
-          {/* Projects List */}
-          <div className="space-y-3">
-            {filteredRecords.length === 0 ? (
-              <div className="rounded-2xl border border-premium-beige/25 bg-white p-12 text-center shadow-[0_18px_60px_rgba(40,28,16,0.08)]">
-                <Package size={48} className="mx-auto text-border-line" />
-                <p className="mt-4 text-sm text-foreground-secondary">Belum ada project production</p>
-                <p className="mt-1 text-xs text-foreground-secondary">
-                  Project akan muncul setelah booking dikonfirmasi
-                </p>
-              </div>
-            ) : (
-              filteredRecords.map((record) => {
-                const currentStatus = getCurrentProductionStatus(record);
-                const progress = getProgressPercentage(record);
-                const isCompleted = record.steps.delivery.status === "completed";
+      {/* Production List */}
+      <div className="space-y-3">
+        {filteredRecords.length === 0 ? (
+          <div className="rounded-2xl border border-premium-beige/25 bg-white p-12 text-center shadow-[0_18px_60px_rgba(40,28,16,0.08)]">
+            <Package size={48} className="mx-auto text-border-line" />
+            <p className="mt-4 text-sm text-foreground-secondary">Belum ada project production</p>
+            <p className="mt-1 text-xs text-foreground-secondary">
+              Project akan muncul setelah booking dikonfirmasi
+            </p>
+          </div>
+        ) : (
+          filteredRecords.map((record) => {
+            const currentStatus = getCurrentProductionStatus(record);
+            const progress = getProgressPercentage(record);
+            const isCompleted = record.steps.delivery.status === "completed";
 
-                return (
-                  <div
-                    key={record.bookingId}
-                    className="rounded-2xl border border-premium-beige/25 bg-white p-5 shadow-[0_18px_60px_rgba(40,28,16,0.08)] hover:border-premium-beige/45 transition cursor-pointer"
-                    onClick={() => openDetail(record)}
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="text-sm font-semibold">{record.orderNumber}</span>
-                          <span className="text-xs text-foreground-secondary">•</span>
-                          <span className="text-sm">{record.customerName}</span>
-                        </div>
-                        <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-secondary">
-                          <span className="flex items-center gap-1">
-                            <Package size={12} /> {record.packageName}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} /> {formatDate(record.eventDate)}
-                          </span>
-                          <span className="flex items-center gap-1">
-                            <MapPin size={12} /> {record.eventLocation}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Status Badge */}
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Status</p>
-                          <AdminStatusBadge tone={isCompleted ? "success" : currentStatus === "editing" || currentStatus === "printing" ? "warning" : "neutral"}>
-                            {isCompleted ? "Completed" : currentStatus === "pelunasan" ? "Pelunasan" : currentStatus === "photo_sorting" ? "Photo Sorting" : currentStatus === "editing" ? "Editing" : currentStatus === "printing" ? "Printing" : currentStatus === "finishing" ? "Finishing" : currentStatus === "delivery" ? "Delivery" : "Waiting"}
-                          </AdminStatusBadge>
-                        </div>
-
-                        {/* Progress */}
-                        <div className="hidden sm:block">
-                          <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Progress</p>
-                          <div className="mt-1 flex items-center gap-2">
-                            <div className="h-2 w-16 overflow-hidden rounded-full bg-border-line">
-                              <div
-                                className="h-full bg-premium-beige transition-all"
-                                style={{ width: `${progress}%` }}
-                              />
-                            </div>
-                            <span className="text-xs font-medium">{progress}%</span>
-                          </div>
-                        </div>
-
-                        <Eye size={18} className="text-foreground-secondary" />
-                      </div>
+            return (
+              <div
+                key={record.bookingId}
+                className="rounded-2xl border border-premium-beige/25 bg-white p-5 shadow-[0_18px_60px_rgba(40,28,16,0.08)] hover:border-premium-beige/45 transition cursor-pointer"
+                onClick={() => openDetail(record)}
+              >
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                  <div className="flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold">{record.orderNumber}</span>
+                      <span className="text-xs text-foreground-secondary">•</span>
+                      <span className="text-sm">{record.customerName}</span>
                     </div>
-
-                    {/* Step Progress Bar */}
-                    <div className="mt-4 flex items-center gap-1">
-                      {Object.entries(record.steps).map(([key, step], index) => (
-                        <div key={key} className="flex flex-1 items-center">
-                          <div className={`h-6 flex-1 rounded-sm transition-all ${
-                            step.status === "completed"
-                              ? "bg-premium-beige"
-                              : step.status === "in_progress"
-                              ? "bg-premium-beige/50 animate-pulse"
-                              : "bg-border-line"
-                          }`} />
-                          {index < 5 && <div className="h-px w-2 bg-border-line" />}
-                        </div>
-                      ))}
-                    </div>
-                    <div className="mt-1.5 flex justify-between text-[9px] text-foreground-secondary">
-                      <span>P</span>
-                      <span>S</span>
-                      <span>E</span>
-                      <span>C</span>
-                      <span>F</span>
-                      <span>D</span>
+                    <div className="mt-1.5 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-secondary">
+                      <span className="flex items-center gap-1">
+                        <Package size={12} /> {record.packageName}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Calendar size={12} /> {formatDate(record.eventDate)}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <MapPin size={12} /> {record.eventLocation}
+                      </span>
                     </div>
                   </div>
-                );
-              })
-            )}
-          </div>
-        </>
-      )}
 
-      {/* TASKS TAB */}
-      {activeTab === "tasks" && (
-        <>
-          {/* Tasks Header */}
-          <div className="rounded-2xl border border-premium-beige/25 bg-white/86 p-4 shadow-[0_18px_60px_rgba(40,28,16,0.08)] backdrop-blur">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
-                <h3 className="text-lg font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-                  {isOperationalUser ? "Tugas Saya" : "Semua Tasks"}
-                </h3>
-                <p className="text-xs text-foreground-secondary">
-                  {isOperationalUser
-                    ? "Kelola tugas production Anda"
-                    : `Total ${filteredTasks.length} tugas`}
-                </p>
-              </div>
-              {/* Filter Controls for Admin */}
-              {!isOperationalUser && canViewAll && (
-                <div className="flex items-center gap-2">
-                  <select
-                    value={taskFilter}
-                    onChange={(e) => setTaskFilter(e.target.value as any)}
-                    className="rounded-lg border border-border-line bg-white px-3 py-2 text-xs"
-                  >
-                    <option value="all">Semua Status</option>
-                    <option value="pending">Pending</option>
-                    <option value="in_progress">In Progress</option>
-                    <option value="submitted">Submitted</option>
-                    <option value="revision">Revision</option>
-                    <option value="completed">Completed</option>
-                  </select>
-                  <button
-                    onClick={openNewTask}
-                    className="inline-flex items-center gap-2 rounded-lg bg-dark-premium px-4 py-2 text-xs font-medium text-white hover:bg-dark-premium/90"
-                  >
-                    <Plus size={14} /> Buat Task
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Tasks List */}
-          <div className="space-y-3">
-            {filteredTasks.length === 0 ? (
-              <div className="rounded-2xl border border-premium-beige/25 bg-white p-12 text-center shadow-[0_18px_60px_rgba(40,28,16,0.08)]">
-                <ListTodo size={48} className="mx-auto text-border-line" />
-                <p className="mt-4 text-sm text-foreground-secondary">
-                  {isOperationalUser
-                    ? "Belum ada tugas production untuk Anda."
-                    : "Belum ada tugas production."}
-                </p>
-                <p className="mt-1 text-xs text-foreground-secondary">
-                  {isOperationalUser
-                    ? "Task akan muncul setelah admin menugaskan Anda."
-                    : "Buat task baru untuk staff."}
-                </p>
-              </div>
-            ) : (
-              filteredTasks.map((task) => {
-                const statusConfig = TASK_STATUS_CONFIG[task.status];
-                const isOwnTask = task.assignedToId === staffEmployeeId;
-
-                return (
-                  <div
-                    key={task.id}
-                    className="rounded-2xl border border-premium-beige/25 bg-white p-5 shadow-[0_18px_60px_rgba(40,28,16,0.08)] hover:border-premium-beige/45 transition cursor-pointer"
-                    onClick={() => openTaskDetail(task)}
-                  >
-                    <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                      <div className="flex-1">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${statusConfig.bgClass} ${statusConfig.textClass}`}>
-                            {statusConfig.icon}
-                            {statusConfig.label}
-                          </span>
-                          <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-[10px] font-medium ${
-                            task.priority === "high" ? "bg-red-50 text-red-700" :
-                            task.priority === "medium" ? "bg-amber-50 text-amber-700" :
-                            "bg-gray-50 text-gray-700"
-                          }`}>
-                            {task.priority === "high" ? "↑" : task.priority === "medium" ? "→" : "↓"} {task.priority}
-                          </span>
-                        </div>
-                        <h4 className="mt-2 font-semibold">{task.title}</h4>
-                        <p className="mt-1 text-sm text-foreground-secondary line-clamp-2">{task.description}</p>
-                        <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-foreground-secondary">
-                          <span className="flex items-center gap-1">
-                            <User size={12} /> {task.assignedToName || "Belum ditugaskan"}
-                          </span>
-                          {task.bookingId && (
-                            <span className="flex items-center gap-1">
-                              <Package size={12} /> Booking #{task.bookingId.slice(0, 8)}
-                            </span>
-                          )}
-                          <span className="flex items-center gap-1">
-                            <Calendar size={12} /> {formatDate(task.deadline)}
-                          </span>
-                        </div>
-                      </div>
-
-                      {/* Quick Actions */}
-                      <div className="flex items-center gap-2">
-                        {isOwnTask && task.status === "pending" && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); quickAction(task, "start"); }}
-                            className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
-                          >
-                            Start
-                          </button>
-                        )}
-                        {isOwnTask && task.status === "in_progress" && (
-                          <button
-                            onClick={(e) => { e.stopPropagation(); quickAction(task, "submit"); }}
-                            className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100"
-                          >
-                            Submit
-                          </button>
-                        )}
-                        <Eye size={18} className="text-foreground-secondary" />
-                      </div>
+                  {/* Status Badge */}
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Status</p>
+                      <AdminStatusBadge tone={isCompleted ? "success" : currentStatus === "editing" || currentStatus === "printing" ? "warning" : "neutral"}>
+                        {isCompleted ? "Completed" : currentStatus === "pelunasan" ? "Pelunasan" : currentStatus === "photo_sorting" ? "Photo Sorting" : currentStatus === "editing" ? "Editing" : currentStatus === "printing" ? "Printing" : currentStatus === "finishing" ? "Finishing" : currentStatus === "delivery" ? "Delivery" : "Waiting"}
+                      </AdminStatusBadge>
                     </div>
-                  </div>
-                );
-              })
-            )}
-          </div>
-        </>
-      )}
 
-      {/* KANBAN TAB */}
-      {activeTab === "kanban" && canViewAllProjectsAccess && (
-        <>
-          <div className="space-y-4">
-            {(() => {
-              // Group projects by current stage
-              const kanbanStages = [
-                { id: "pelunasan", label: "Pelunasan", color: "border-gray-300" },
-                { id: "photoSorting", label: "Photo Sorting", color: "border-blue-300" },
-                { id: "editing", label: "Editing", color: "border-purple-300" },
-                { id: "printing", label: "Printing", color: "border-amber-300" },
-                { id: "finishing", label: "Finishing", color: "border-orange-300" },
-                { id: "delivery", label: "Delivery", color: "border-emerald-300" },
-                { id: "completed", label: "Completed", color: "border-emerald-500" },
-              ];
-
-              const grouped = kanbanStages.map(stage => ({
-                ...stage,
-                projects: stage.id === "completed"
-                  ? productionRecords.filter(r => r.steps.delivery.status === "completed")
-                  : productionRecords.filter(r => getCurrentProductionStatus(r) === stage.id),
-              }));
-
-              const hasAnyProjects = grouped.some(g => g.projects.length > 0);
-
-              if (!hasAnyProjects) {
-                return (
-                  <div className="rounded-2xl border border-premium-beige/25 bg-white p-12 text-center shadow-[0_18px_60px_rgba(40,28,16,0.08)]">
-                    <LayoutGrid size={48} className="mx-auto text-border-line" />
-                    <p className="mt-4 text-sm text-foreground-secondary">Belum ada project dalam pipeline.</p>
-                    <p className="mt-1 text-xs text-foreground-secondary">
-                      Project akan muncul setelah booking dikonfirmasi.
-                    </p>
-                  </div>
-                );
-              }
-
-              return (
-                <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-4">
-                  {grouped.map(stage => (
-                    <div key={stage.id} className="space-y-3">
-                      <div className={`rounded-lg border-l-4 bg-white p-3 shadow-sm ${stage.color}`}>
-                        <div className="flex items-center justify-between">
-                          <h4 className="font-semibold text-sm">{stage.label}</h4>
-                          <span className="rounded-full bg-background-soft px-2 py-0.5 text-xs font-medium">
-                            {stage.projects.length}
-                          </span>
-                        </div>
-                      </div>
-                      {stage.projects.length === 0 ? (
-                        <div className="rounded-xl border border-dashed border-border-line bg-background-soft/50 p-4 text-center">
-                          <p className="text-xs text-foreground-secondary">Kosong</p>
-                        </div>
-                      ) : (
-                        <div className="space-y-2">
-                          {stage.projects.map(record => (
-                            <div
-                              key={record.bookingId}
-                              onClick={() => openDetail(record)}
-                              className="rounded-xl border border-border-line bg-white p-3 shadow-sm hover:border-premium-beige/45 transition cursor-pointer"
-                            >
-                              <div className="flex items-start justify-between">
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-sm font-semibold truncate">{record.orderNumber}</p>
-                                  <p className="text-xs text-foreground-secondary truncate">{record.customerName}</p>
-                                </div>
-                                <Eye size={14} className="text-foreground-secondary ml-2 flex-shrink-0" />
-                              </div>
-                              <div className="mt-2 flex items-center gap-2 text-[10px] text-foreground-secondary">
-                                <span className="flex items-center gap-1 truncate">
-                                  <Package size={10} /> {record.packageName}
-                                </span>
-                              </div>
-                              <div className="mt-2">
-                                <div className="flex items-center gap-1">
-                                  <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-border-line">
-                                    <div
-                                      className="h-full bg-premium-beige"
-                                      style={{ width: `${getProgressPercentage(record)}%` }}
-                                    />
-                                  </div>
-                                  <span className="text-[10px] font-medium">{getProgressPercentage(record)}%</span>
-                                </div>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  ))}
-                </div>
-              );
-            })()}
-          </div>
-        </>
-      )}
-
-      {/* DEADLINES TAB */}
-      {activeTab === "deadlines" && (
-        <>
-          <div className="space-y-6">
-            {(() => {
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const todayEnd = new Date(today);
-              todayEnd.setHours(23, 59, 59, 999);
-              const weekEnd = new Date(today);
-              weekEnd.setDate(weekEnd.getDate() + 7);
-
-              // Filter tasks for staff (own tasks only) or admin (all tasks)
-              const relevantTasks = canViewAll
-                ? tasks
-                : tasks.filter(t => t.assignedToId === staffEmployeeId);
-
-              // Categorize deadlines
-              const dueToday = relevantTasks.filter(t => {
-                const deadline = new Date(t.deadline);
-                deadline.setHours(0, 0, 0, 0);
-                return deadline.getTime() === today.getTime() && t.status !== "completed";
-              });
-
-              const dueThisWeek = relevantTasks.filter(t => {
-                const deadline = new Date(t.deadline);
-                deadline.setHours(0, 0, 0, 0);
-                return deadline > today && deadline <= weekEnd && t.status !== "completed";
-              });
-
-              const overdue = relevantTasks.filter(t => {
-                const deadline = new Date(t.deadline);
-                deadline.setHours(0, 0, 0, 0);
-                return deadline < today && t.status !== "completed";
-              });
-
-              const needReview = canViewAll
-                ? relevantTasks.filter(t => t.status === "submitted")
-                : [];
-
-              const hasAnyDeadlines = dueToday.length > 0 || dueThisWeek.length > 0 || overdue.length > 0 || needReview.length > 0;
-
-              if (!hasAnyDeadlines) {
-                return (
-                  <div className="rounded-2xl border border-premium-beige/25 bg-white p-12 text-center shadow-[0_18px_60px_rgba(40,28,16,0.08)]">
-                    <CalendarClock size={48} className="mx-auto text-border-line" />
-                    <p className="mt-4 text-sm text-foreground-secondary">Belum ada deadline aktif.</p>
-                    <p className="mt-1 text-xs text-foreground-secondary">
-                      {isOperationalUser
-                        ? "Task tanpa deadline atau semua task sudah selesai."
-                        : "Assign task dengan deadline untuk melihat di sini."}
-                    </p>
-                  </div>
-                );
-              }
-
-              const deadlineSections = [
-                { id: "overdue", label: "Overdue", items: overdue, color: "border-l-red-500", badge: "bg-red-100 text-red-700" },
-                { id: "review", label: "Need Review", items: needReview, color: "border-l-blue-500", badge: "bg-blue-100 text-blue-700" },
-                { id: "today", label: "Due Today", items: dueToday, color: "border-l-amber-500", badge: "bg-amber-100 text-amber-700" },
-                { id: "week", label: "Due This Week", items: dueThisWeek, color: "border-l-emerald-500", badge: "bg-emerald-100 text-emerald-700" },
-              ].filter(s => s.items.length > 0);
-
-              return (
-                <div className="space-y-6">
-                  {deadlineSections.map(section => (
-                    <div key={section.id}>
-                      <div className="mb-3 flex items-center justify-between">
-                        <h4 className={`flex items-center gap-2 border-l-4 pl-3 text-sm font-semibold ${section.color}`}>
-                          {section.label}
-                          <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${section.badge}`}>
-                            {section.items.length}
-                          </span>
-                        </h4>
-                      </div>
-                      <div className="space-y-2">
-                        {section.items.map(task => (
+                    {/* Progress */}
+                    <div className="hidden sm:block">
+                      <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Progress</p>
+                      <div className="mt-1 flex items-center gap-2">
+                        <div className="h-2 w-16 overflow-hidden rounded-full bg-border-line">
                           <div
-                            key={task.id}
-                            onClick={() => openTaskDetail(task)}
-                            className="rounded-xl border border-border-line bg-white p-4 shadow-sm hover:border-premium-beige/45 transition cursor-pointer"
-                          >
-                            <div className="flex items-start justify-between gap-4">
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[10px] font-medium ${TASK_STATUS_CONFIG[task.status].bgClass} ${TASK_STATUS_CONFIG[task.status].textClass}`}>
-                                    {TASK_STATUS_CONFIG[task.status].icon}
-                                    {TASK_STATUS_CONFIG[task.status].label}
-                                  </span>
-                                </div>
-                                <p className="mt-1 font-semibold text-sm">{task.title}</p>
-                                <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-secondary">
-                                  {canViewAll && (
-                                    <span className="flex items-center gap-1">
-                                      <User size={10} /> {task.assignedToName || "Belum ditugaskan"}
-                                    </span>
-                                  )}
-                                  {task.bookingId && (
-                                    <span className="flex items-center gap-1">
-                                      <Package size={10} /> #{task.bookingId.slice(0, 8)}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              <div className="text-right flex-shrink-0">
-                                <p className={`text-xs font-semibold ${section.id === "overdue" ? "text-red-600" : "text-foreground-secondary"}`}>
-                                  {formatDate(task.deadline)}
-                                </p>
-                                <p className="mt-1 text-[10px] text-foreground-secondary">
-                                  {task.priority === "high" ? "↑ High" : task.priority === "medium" ? "→ Medium" : "↓ Low"}
-                                </p>
-                              </div>
-                            </div>
-                          </div>
-                        ))}
+                            className="h-full bg-premium-beige transition-all"
+                            style={{ width: `${progress}%` }}
+                          />
+                        </div>
+                        <span className="text-xs font-medium">{progress}%</span>
                       </div>
+                    </div>
+
+                    <Eye size={18} className="text-foreground-secondary" />
+                  </div>
+                </div>
+
+                {/* Step Progress Bar */}
+                <div className="mt-4 flex items-center gap-1">
+                  {Object.entries(record.steps).map(([key, step], index) => (
+                    <div key={key} className="flex flex-1 items-center">
+                      <div className={`h-6 flex-1 rounded-sm transition-all ${
+                        step.status === "completed"
+                          ? "bg-premium-beige"
+                          : step.status === "in_progress"
+                          ? "bg-premium-beige/50 animate-pulse"
+                          : "bg-border-line"
+                      }`} />
+                      {index < 5 && <div className="h-px w-2 bg-border-line" />}
                     </div>
                   ))}
                 </div>
-              );
-            })()}
-          </div>
-        </>
-      )}
+                <div className="mt-1.5 flex justify-between text-[9px] text-foreground-secondary">
+                  <span>P</span>
+                  <span>S</span>
+                  <span>E</span>
+                  <span>C</span>
+                  <span>F</span>
+                  <span>D</span>
+                </div>
+              </div>
+            );
+          })
+        )}
+      </div>
 
       {/* Detail Modal */}
       {selectedRecord && isDetailOpen && (
@@ -1704,239 +1154,6 @@ export default function ProductionPage() {
                   </button>
                 </div>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* TASK MODAL */}
-      {showTaskModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl bg-white shadow-[0_18px_60px_rgba(40,28,16,0.15)]">
-            {/* Modal Header */}
-            <div className="sticky top-0 z-10 border-b border-border-line bg-white px-6 py-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.12em] text-premium-beige">
-                    {selectedTask ? "Task Detail" : "Buat Task Baru"}
-                  </p>
-                  <h3 className="mt-1 text-xl font-semibold" style={{ fontFamily: "var(--font-heading)" }}>
-                    {selectedTask ? selectedTask.title : "Production Task"}
-                  </h3>
-                </div>
-                <button
-                  onClick={() => { setShowTaskModal(false); setSelectedTask(null); }}
-                  className="rounded-lg p-2 text-foreground-secondary hover:bg-premium-beige/10"
-                >
-                  <X size={20} />
-                </button>
-              </div>
-            </div>
-
-            {/* Modal Content */}
-            <div className="p-6 space-y-5">
-              {selectedTask ? (
-                <>
-                  {/* Task Info */}
-                  <div className="rounded-xl border border-border-line bg-background-soft p-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Status</p>
-                        <div className="mt-1">
-                          {(() => {
-                            const statusConfig = TASK_STATUS_CONFIG[selectedTask.status];
-                            return (
-                              <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusConfig.bgClass} ${statusConfig.textClass}`}>
-                                {statusConfig.icon}
-                                {statusConfig.label}
-                              </span>
-                            );
-                          })()}
-                        </div>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Priority</p>
-                        <p className="mt-1 text-sm font-semibold capitalize">{selectedTask.priority}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Assigned To</p>
-                        <p className="mt-1 text-sm font-semibold">{selectedTask.assignedToName || "Belum ditugaskan"}</p>
-                      </div>
-                      <div>
-                        <p className="text-[10px] uppercase tracking-[0.14em] text-foreground-secondary">Deadline</p>
-                        <p className="mt-1 text-sm font-semibold">{formatDate(selectedTask.deadline)}</p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Description */}
-                  <div>
-                    <label className={labelClass}>Description</label>
-                    <p className="text-sm">{selectedTask.description || "Tidak ada deskripsi"}</p>
-                  </div>
-
-                  {/* Action Note (for submit/revision) */}
-                  {(taskAction === "submit" || taskAction === "revision") && (
-                    <div>
-                      <label className={labelClass}>
-                        {taskAction === "submit" ? "Catatan Submit" : "Catatan Revision"}
-                      </label>
-                      <textarea
-                        value={actionNote}
-                        onChange={(e) => setActionNote(e.target.value)}
-                        className={`${inputClassName} min-h-[100px] resize-none`}
-                        placeholder={taskAction === "submit" ? "Tambahkan catatan untuk admin..." : "Jelaskan revisi yang diperlukan..."}
-                      />
-                    </div>
-                  )}
-
-                  {/* Action Buttons */}
-                  <div className="flex flex-wrap gap-3 border-t border-border-line pt-5">
-                    {/* Staff Actions */}
-                    {selectedTask.assignedToId === staffEmployeeId && (
-                      <>
-                        {selectedTask.status === "pending" && (
-                          <button
-                            onClick={() => { setTaskAction("start"); saveTask(); }}
-                            disabled={taskSubmitting}
-                            className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-emerald-600 disabled:opacity-50"
-                          >
-                            <Loader2 size={16} className={taskSubmitting ? "animate-spin" : ""} />
-                            Start Task
-                          </button>
-                        )}
-                        {selectedTask.status === "in_progress" && (
-                          <button
-                            onClick={() => setTaskAction("submit")}
-                            className="inline-flex items-center gap-2 rounded-lg bg-blue-500 px-4 py-2.5 text-sm font-medium text-white hover:bg-blue-600"
-                          >
-                            <Save size={16} /> Submit Task
-                          </button>
-                        )}
-                      </>
-                    )}
-
-                    {/* Admin Actions */}
-                    {canManageAll && (
-                      <>
-                        {selectedTask.status === "submitted" && (
-                          <button
-                            onClick={() => { setTaskAction("revision"); saveTask(); }}
-                            disabled={taskSubmitting}
-                            className="inline-flex items-center gap-2 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2.5 text-sm font-medium text-amber-700 hover:bg-amber-100 disabled:opacity-50"
-                          >
-                            <Edit2 size={16} /> Request Revision
-                          </button>
-                        )}
-                        {(selectedTask.status === "submitted" || selectedTask.status === "revision") && (
-                          <button
-                            onClick={() => { setTaskAction("complete"); saveTask(); }}
-                            disabled={taskSubmitting}
-                            className="inline-flex items-center gap-2 rounded-lg bg-dark-premium px-4 py-2.5 text-sm font-medium text-white hover:bg-dark-premium/90 disabled:opacity-50"
-                          >
-                            <CheckCircle2 size={16} /> Complete Task
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDeleteTask(selectedTask.id)}
-                          className="inline-flex items-center gap-2 rounded-lg border border-red-200 bg-red-50 px-4 py-2.5 text-sm font-medium text-red-700 hover:bg-red-100"
-                        >
-                          <Trash2 size={16} /> Delete
-                        </button>
-                      </>
-                    )}
-
-                    {/* Save action note button */}
-                    {(taskAction === "submit" || taskAction === "revision") && (
-                      <button
-                        onClick={saveTask}
-                        disabled={taskSubmitting}
-                        className="inline-flex items-center gap-2 rounded-lg bg-dark-premium px-4 py-2.5 text-sm font-medium text-white hover:bg-dark-premium/90 disabled:opacity-50"
-                      >
-                        <Save size={16} /> {taskSubmitting ? "Menyimpan..." : "Simpan"}
-                      </button>
-                    )}
-                  </div>
-                </>
-              ) : (
-                <>
-                  {/* Create New Task Form */}
-                  <div>
-                    <label className={labelClass}>Title</label>
-                    <input
-                      type="text"
-                      value={taskForm.title}
-                      onChange={(e) => setTaskForm({ ...taskForm, title: e.target.value })}
-                      className={inputClassName}
-                      placeholder="Judul tugas..."
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Description</label>
-                    <textarea
-                      value={taskForm.description}
-                      onChange={(e) => setTaskForm({ ...taskForm, description: e.target.value })}
-                      className={`${inputClassName} min-h-[100px] resize-none`}
-                      placeholder="Deskripsi tugas..."
-                    />
-                  </div>
-                  <div>
-                    <label className={labelClass}>Assign To</label>
-                    <select
-                      value={taskForm.assignedToId}
-                      onChange={(e) => {
-                        const emp = employees.find((em: any) => em.id === e.target.value);
-                        setTaskForm({ ...taskForm, assignedToId: e.target.value, assignedToName: emp?.name || "" });
-                      }}
-                      className={inputClassName}
-                    >
-                      <option value="">Pilih Staff</option>
-                      {employees?.map((emp: any) => (
-                        <option key={emp.id} value={emp.id}>{emp.name}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <label className={labelClass}>Priority</label>
-                      <select
-                        value={taskForm.priority}
-                        onChange={(e) => setTaskForm({ ...taskForm, priority: e.target.value as TaskPriority })}
-                        className={inputClassName}
-                      >
-                        <option value="low">Low</option>
-                        <option value="medium">Medium</option>
-                        <option value="high">High</option>
-                      </select>
-                    </div>
-                    <div>
-                      <label className={labelClass}>Deadline</label>
-                      <input
-                        type="date"
-                        value={taskForm.deadline}
-                        onChange={(e) => setTaskForm({ ...taskForm, deadline: e.target.value })}
-                        className={inputClassName}
-                      />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 border-t border-border-line pt-5">
-                    <button
-                      onClick={() => { setShowTaskModal(false); setSelectedTask(null); }}
-                      className="rounded-lg border border-border-line px-4 py-2.5 text-sm font-medium text-foreground-secondary hover:border-premium-beige hover:text-foreground"
-                    >
-                      Batal
-                    </button>
-                    <button
-                      onClick={saveTask}
-                      disabled={taskSubmitting || !taskForm.title || !taskForm.assignedToId}
-                      className="inline-flex items-center gap-2 rounded-lg bg-dark-premium px-4 py-2.5 text-sm font-medium text-white hover:bg-dark-premium/90 disabled:opacity-50"
-                    >
-                      <Save size={16} /> {taskSubmitting ? "Menyimpan..." : "Simpan"}
-                    </button>
-                  </div>
-                </>
-              )}
             </div>
           </div>
         </div>
