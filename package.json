@@ -5,7 +5,10 @@
   "type": "module",
   "scripts": {
     "build": "vite build",
-    "dev": "vite"
+    "dev": "vite",
+    "deploy:db": "bash scripts/deploy-supabase.sh",
+    "deploy:db:win": "scripts\\deploy-supabase.bat",
+    "deploy:db:unix": "bash scripts/deploy-supabase.sh"
   },
   "dependencies": {
     "@emotion/react": "11.14.0",

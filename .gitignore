@@ -8,6 +8,9 @@ dist/
 .env
 .env.*
 !.env.example
+!.env.example
+.env.local
+.env.production
 
 .playwright-cli/
 output/
