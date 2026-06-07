@@ -1,28 +1,22 @@
 <?php
-/**
- * Get Current User Endpoint
- * GET /api/auth/me.php
- */
-
-declare(strict_types=1);
+// Me endpoint
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../helpers/response.php';
 require_once __DIR__ . '/../helpers/auth.php';
 
+header('Content-Type: application/json');
+
 try {
     $user = getCurrentUser();
-
-    if ($user === null) {
-        errorResponse('Not authenticated', 401);
+    if (!$user) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Not authenticated']);
+        exit;
     }
-
-    // Remove password hash from response
-    unset($user['password_hash']);
-
-    successResponse($user, 'User data retrieved');
-
+    echo json_encode(['success' => true, 'data' => $user]);
 } catch (Exception $e) {
     error_log('Me error: ' . $e->getMessage());
-    errorResponse('Terjadi kesalahan', 500);
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Server error']);
 }

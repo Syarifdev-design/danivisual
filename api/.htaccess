@@ -1,0 +1,176 @@
+# ================================================================================
+# DaniVisual API - Apache Configuration
+# Place this file in /api/ directory on Hostinger
+# ================================================================================
+
+# PHP Version
+<IfModule mod_php.c>
+    php_value upload_max_filesize 20M
+    php_value post_max_size 25M
+    php_value max_execution_time 300
+    php_value max_input_time 300
+    php_value memory_limit 256M
+    php_flag display_errors off
+    php_flag log_errors on
+</IfModule>
+
+# ================================================================================
+# CORS HEADERS (conditional - not wildcard)
+# ================================================================================
+<IfModule mod_headers.c>
+    # Set allowed origin based on request
+    # Development: localhost
+    SetEnvIf Origin "^http://localhost:(5173|4173)$" ALLOWED_ORIGIN=$0
+    SetEnvIf Origin "^http://127\.0\.0\.1:(5173|4173)$" ALLOWED_ORIGIN=$0
+
+    # Production: uncomment and set your actual domain
+    # SetEnvIf Origin "^https://danivisual\.com$" ALLOWED_ORIGIN=$0
+
+    Header set Access-Control-Allow-Origin "%{ALLOWED_ORIGIN}e" env=ALLOWED_ORIGIN
+    Header set Access-Control-Allow-Credentials "true" env=ALLOWED_ORIGIN
+    Header set Access-Control-Allow-Methods "GET, POST, PUT, DELETE, PATCH, OPTIONS" env=ALLOWED_ORIGIN
+    Header set Access-Control-Allow-Headers "Content-Type, Authorization, X-Requested-With" env=ALLOWED_ORIGIN
+    Header set Access-Control-Max-Age "86400"
+</IfModule>
+
+# Handle preflight OPTIONS requests
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteCond %{REQUEST_METHOD} OPTIONS
+    RewriteRule ^(.*)$ $1 [R=204,L]
+</IfModule>
+
+# ================================================================================
+# SECURITY HEADERS
+# ================================================================================
+<IfModule mod_headers.c>
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-Content-Type-Options "nosniff"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# Custom error pages
+ErrorDocument 400 /api/error.php?code=400
+ErrorDocument 401 /api/error.php?code=401
+ErrorDocument 403 /api/error.php?code=403
+ErrorDocument 404 /api/error.php?code=404
+ErrorDocument 500 /api/error.php?code=500
+
+# ================================================================================
+# PROTECT SENSITIVE FILES
+# ================================================================================
+<FilesMatch "\.(env|log|sql|md|yml|yaml|json|lock)$">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+<FilesMatch "^\._">
+    Order Allow,Deny
+    Deny from all
+</FilesMatch>
+
+# ================================================================================
+# ROUTING - Clean URLs to PHP files
+# ================================================================================
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    RewriteBase /api/
+
+    # Auth routes
+    RewriteRule ^auth/login$ auth/login.php [L]
+    RewriteRule ^auth/logout$ auth/logout.php [L]
+    RewriteRule ^auth/register$ auth/register.php [L]
+    RewriteRule ^auth/me$ auth/me.php [L]
+
+    # Packages routes
+    RewriteRule ^packages/?$ packages/index.php [L]
+    RewriteRule ^packages/([a-zA-Z0-9-]+)/?$ packages/index.php [L]
+
+    # Bookings routes
+    RewriteRule ^bookings/?$ bookings/index.php [L]
+    RewriteRule ^bookings/([a-zA-Z0-9-]+)/?$ bookings/index.php [L]
+    RewriteRule ^bookings/([a-zA-Z0-9-]+)/([a-zA-Z]+)/?$ bookings/index.php [L]
+
+    # FAQs routes
+    RewriteRule ^faqs/?$ faqs/index.php [L]
+    RewriteRule ^faqs/([a-zA-Z0-9-]+)/?$ faqs/index.php [L]
+
+    # Portfolios routes
+    RewriteRule ^portfolios/?$ portfolios/index.php [L]
+    RewriteRule ^portfolios/([a-zA-Z0-9-]+)/?$ portfolios/index.php [L]
+    RewriteRule ^portfolios/([a-zA-Z0-9-]+)/([a-zA-Z]+)/?$ portfolios/index.php [L]
+
+    # Payments routes
+    RewriteRule ^payments/?$ payments/index.php [L]
+    RewriteRule ^payments/([a-zA-Z0-9-]+)/?$ payments/index.php [L]
+    RewriteRule ^payments/([a-zA-Z0-9-]+)/([a-zA-Z]+)/?$ payments/index.php [L]
+
+    # Customers routes
+    RewriteRule ^customers/?$ customers/index.php [L]
+    RewriteRule ^customers/([a-zA-Z0-9-]+)/?$ customers/index.php [L]
+
+    # Content routes
+    RewriteRule ^content/?$ content/index.php [L]
+    RewriteRule ^content/([a-zA-Z]+)/?$ content/index.php [L]
+
+    # Calendar routes
+    RewriteRule ^calendar/?$ calendar/index.php [L]
+    RewriteRule ^calendar/([a-zA-Z0-9-]+)/?$ calendar/index.php [L]
+
+    # Staff routes
+    RewriteRule ^staff/?$ staff/index.php [L]
+    RewriteRule ^staff/([a-zA-Z0-9-]+)/?$ staff/index.php [L]
+
+    # Health check routes
+    RewriteRule ^health/db/?$ health/db.php [L]
+    RewriteRule ^health/?$ health/db.php [L]
+
+    # Fallback: route .php extension to the file
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    RewriteRule ^(.+)\.php$ $1.php [L]
+</IfModule>
+
+# ================================================================================
+# FILETYPE RESTRICTIONS
+# ================================================================================
+<FilesMatch "\.(php|php[3-8]|phtml|phar)$">
+    <Files "*.php">
+        Order Allow,Deny
+        Allow from all
+    </Files>
+</FilesMatch>
+
+# ================================================================================
+# COMPRESSION
+# ================================================================================
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/plain
+    AddOutputFilterByType DEFLATE text/html
+    AddOutputFilterByType DEFLATE text/xml
+    AddOutputFilterByType DEFLATE text/css
+    AddOutputFilterByType DEFLATE application/javascript
+    AddOutputFilterByType DEFLATE application/json
+    AddOutputFilterByType DEFLATE application/xml
+</IfModule>
+
+# ================================================================================
+# CACHING
+# ================================================================================
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpg "access plus 1 month"
+    ExpiresByType image/jpeg "access plus 1 month"
+    ExpiresByType image/png "access plus 1 month"
+    ExpiresByType image/gif "access plus 1 month"
+    ExpiresByType image/webp "access plus 1 month"
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+    ExpiresByType application/json "access plus 0 seconds"
+</IfModule>
+
+# ================================================================================
+# INDEX
+# ================================================================================
+DirectoryIndex index.php index.html
+Options -Indexes

@@ -2,11 +2,11 @@
  * FAQ Service
  *
  * Mengelola operasi CRUD untuk FAQ content.
- * Menggunakan Supabase sebagai sumber utama dengan localStorage fallback.
+ * Menggunakan PHP API sebagai sumber utama dengan localStorage fallback.
  * Default data diambil dari shared defaultFaqs.ts
  */
 
-import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabaseClient";
+import { apiClient, getLocalData, setLocalData, FALLBACK_STORAGE_KEYS } from "../lib/apiClient";
 import { defaultFaqs } from "../app/data/defaultFaqs";
 
 // ============================================================================
@@ -26,7 +26,7 @@ export interface FAQ {
 // LocalStorage Keys
 // ============================================================================
 
-const STORAGE_KEY = "danivisual_admin_faqs";
+const STORAGE_KEY = FALLBACK_STORAGE_KEYS.faqs;
 
 // ============================================================================
 // Helper Functions
@@ -34,55 +34,24 @@ const STORAGE_KEY = "danivisual_admin_faqs";
 
 const generateId = (): string => Date.now().toString(36) + Math.random().toString(36).substr(2);
 
-const getLocalData = <T>(key: string, defaultValue: T): T => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
-};
-
-const setLocalData = <T>(key: string, data: T): void => {
-  localStorage.setItem(key, JSON.stringify(data));
-};
-
 // ============================================================================
 // FAQ Operations
 // ============================================================================
 
 /**
  * Ambil semua FAQs
- * Urutan: Supabase → localStorage → defaultFaqs
+ * Urutan: PHP API → localStorage → defaultFaqs
  */
 export const getFaqs = async (): Promise<FAQ[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        const { data, error } = await client
-          .from("faqs")
-          .select("*")
-          .order("sort_order", { ascending: true });
-
-        if (!error && data && data.length > 0) {
-          // Map dan cache ke localStorage
-          const faqs = (data || []).map((row) => ({
-            id: row.id,
-            category: row.category,
-            question: row.question,
-            answer: row.answer,
-            sortOrder: row.sort_order,
-            isPublished: row.is_published ?? true,
-          }));
-          // Cache untuk offline access
-          setLocalData(STORAGE_KEY, faqs);
-          return faqs;
-        }
-      } catch (err) {
-        console.warn("[FAQService] Supabase error:", err);
-      }
+  try {
+    const response = await apiClient.getFaqs();
+    if (response.success && response.data) {
+      // Cache to localStorage for offline
+      setLocalData(STORAGE_KEY, response.data);
+      return response.data as FAQ[];
     }
+  } catch (err) {
+    console.warn("[FAQService] API error:", err);
   }
 
   // Fallback localStorage
@@ -128,30 +97,13 @@ export const getFaqCategories = async (): Promise<string[]> => {
  * Ambil FAQ by ID
  */
 export const getFaqById = async (id: string): Promise<FAQ | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        const { data, error } = await client
-          .from("faqs")
-          .select("*")
-          .eq("id", id)
-          .single();
-
-        if (!error && data) {
-          return {
-            id: data.id,
-            category: data.category,
-            question: data.question,
-            answer: data.answer,
-            sortOrder: data.sort_order,
-            isPublished: data.is_published ?? true,
-          };
-        }
-      } catch (err) {
-        console.warn("[FAQService] getFaqById error:", err);
-      }
+  try {
+    const response = await apiClient.getFaqById(id);
+    if (response.success && response.data) {
+      return response.data as FAQ;
     }
+  } catch (err) {
+    console.warn("[FAQService] getFaqById error:", err);
   }
 
   const faqs = await getFaqs();
@@ -173,40 +125,22 @@ export const createFaq = async (
     sortOrder: faqData.sortOrder || maxSort + 1,
   };
 
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        const { data, error } = await client
-          .from("faqs")
-          .insert({
-            id: newFaq.id,
-            category: newFaq.category,
-            question: newFaq.question,
-            answer: newFaq.answer,
-            sort_order: newFaq.sortOrder,
-            is_published: newFaq.isPublished,
-          })
-          .select()
-          .single();
+  try {
+    const response = await apiClient.createFaq({
+      category: newFaq.category,
+      question: newFaq.question,
+      answer: newFaq.answer,
+      sort_order: newFaq.sortOrder,
+      is_published: newFaq.isPublished,
+    });
 
-        if (!error && data) {
-          const created = {
-            id: data.id,
-            category: data.category,
-            question: data.question,
-            answer: data.answer,
-            sortOrder: data.sort_order,
-            isPublished: data.is_published ?? true,
-          };
-          // Update localStorage cache
-          setLocalData(STORAGE_KEY, [...allFaqs, created]);
-          return created;
-        }
-      } catch (err) {
-        console.warn("[FAQService] createFaq error:", err);
-      }
+    if (response.success) {
+      // Update localStorage cache
+      setLocalData(STORAGE_KEY, [...allFaqs, newFaq]);
+      return newFaq;
     }
+  } catch (err) {
+    console.warn("[FAQService] createFaq error:", err);
   }
 
   // Fallback localStorage
@@ -222,44 +156,24 @@ export const updateFaq = async (
   id: string,
   updates: Partial<FAQ>
 ): Promise<FAQ | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        const dbUpdates: Record<string, unknown> = {};
-        if (updates.category !== undefined) dbUpdates.category = updates.category;
-        if (updates.question !== undefined) dbUpdates.question = updates.question;
-        if (updates.answer !== undefined) dbUpdates.answer = updates.answer;
-        if (updates.sortOrder !== undefined) dbUpdates.sort_order = updates.sortOrder;
-        if (updates.isPublished !== undefined) dbUpdates.is_published = updates.isPublished;
-        dbUpdates.updated_at = new Date().toISOString();
+  try {
+    const response = await apiClient.updateFaq(id, {
+      category: updates.category,
+      question: updates.question,
+      answer: updates.answer,
+      sort_order: updates.sortOrder,
+      is_published: updates.isPublished,
+    });
 
-        const { data, error } = await client
-          .from("faqs")
-          .update(dbUpdates)
-          .eq("id", id)
-          .select()
-          .single();
-
-        if (!error && data) {
-          const updated = {
-            id: data.id,
-            category: data.category,
-            question: data.question,
-            answer: data.answer,
-            sortOrder: data.sort_order,
-            isPublished: data.is_published ?? true,
-          };
-          // Update localStorage cache
-          const allFaqs = await getFaqs();
-          const newFaqs = allFaqs.map((f) => (f.id === id ? updated : f));
-          setLocalData(STORAGE_KEY, newFaqs);
-          return updated;
-        }
-      } catch (err) {
-        console.warn("[FAQService] updateFaq error:", err);
-      }
+    if (response.success) {
+      // Update localStorage cache
+      const allFaqs = await getFaqs();
+      const newFaqs = allFaqs.map((f) => (f.id === id ? { ...f, ...updates } : f));
+      setLocalData(STORAGE_KEY, newFaqs);
+      return newFaqs.find((f) => f.id === id) || null;
     }
+  } catch (err) {
+    console.warn("[FAQService] updateFaq error:", err);
   }
 
   // Fallback localStorage
@@ -275,25 +189,16 @@ export const updateFaq = async (
  * Hapus FAQ
  */
 export const deleteFaq = async (id: string): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        const { error } = await client
-          .from("faqs")
-          .delete()
-          .eq("id", id);
-
-        if (!error) {
-          // Update localStorage cache
-          const allFaqs = await getFaqs();
-          setLocalData(STORAGE_KEY, allFaqs.filter((faq) => faq.id !== id));
-          return true;
-        }
-      } catch (err) {
-        console.warn("[FAQService] deleteFaq error:", err);
-      }
+  try {
+    const response = await apiClient.deleteFaq(id);
+    if (response.success) {
+      // Update localStorage cache
+      const allFaqs = await getFaqs();
+      setLocalData(STORAGE_KEY, allFaqs.filter((faq) => faq.id !== id));
+      return true;
     }
+  } catch (err) {
+    console.warn("[FAQService] deleteFaq error:", err);
   }
 
   // Fallback localStorage
@@ -309,30 +214,22 @@ export const deleteFaq = async (id: string): Promise<boolean> => {
  * Reorder FAQs (update sortOrder berdasarkan array order)
  */
 export const reorderFaqs = async (ids: string[]): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (client) {
-      try {
-        // Update each FAQ's sortOrder
-        for (let i = 0; i < ids.length; i++) {
-          await client
-            .from("faqs")
-            .update({ sort_order: i + 1, updated_at: new Date().toISOString() })
-            .eq("id", ids[i]);
-        }
-        // Update localStorage cache
-        const allFaqs = await getFaqs();
-        const faqMap = new Map(allFaqs.map((f) => [f.id, f]));
-        const reordered = ids.map((id, index) => {
-          const faq = faqMap.get(id);
-          return faq ? { ...faq, sortOrder: index + 1 } : null;
-        }).filter(Boolean) as FAQ[];
-        setLocalData(STORAGE_KEY, reordered);
-        return true;
-      } catch (err) {
-        console.warn("[FAQService] reorderFaqs error:", err);
-      }
+  try {
+    for (let i = 0; i < ids.length; i++) {
+      await apiClient.updateFaq(ids[i], { sort_order: i + 1 });
     }
+
+    // Update localStorage cache
+    const allFaqs = await getFaqs();
+    const faqMap = new Map(allFaqs.map((f) => [f.id, f]));
+    const reordered = ids.map((id, index) => {
+      const faq = faqMap.get(id);
+      return faq ? { ...faq, sortOrder: index + 1 } : null;
+    }).filter(Boolean) as FAQ[];
+    setLocalData(STORAGE_KEY, reordered);
+    return true;
+  } catch (err) {
+    console.warn("[FAQService] reorderFaqs error:", err);
   }
 
   // Fallback localStorage

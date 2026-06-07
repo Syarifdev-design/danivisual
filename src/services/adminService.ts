@@ -2,17 +2,18 @@
  * Admin Service
  *
  * Mengelola operasi CRUD untuk data admin:
- * - Bookings
- * - Customers
- * - Payments
- * - Calendar Events
- * - Admin Users
+ * - Bookings (via apiClient)
+ * - Customers (via apiClient)
+ * - Payments (via apiClient)
+ * - Calendar Events (via apiClient)
+ * - Staff (via apiClient)
  * - Analytics
  *
- * Menggunakan Supabase dengan localStorage fallback.
+ * Sumber utama: PHP API
+ * Fallback: localStorage (non-critical data only)
  */
 
-import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabaseClient";
+import { apiClient, getLocalData, setLocalData } from "../lib/apiClient";
 
 // ============================================================================
 // Types
@@ -119,204 +120,119 @@ const STORAGE_KEYS = {
 // ============================================================================
 
 const generateId = (): string => Date.now().toString(36) + Math.random().toString(36).substr(2);
-const generateOrderNumber = (): string => {
-  const date = new Date();
-  const dateStr = date.toLocaleDateString("id-ID", { format: "ddMMyy" }).replace(/\//g, "");
-  const random = Math.floor(Math.random() * 1000).toString().padStart(3, "0");
-  return `DV-${dateStr}-${random}`;
-};
 
 // ============================================================================
-// LocalStorage Fallback
+// Booking Operations (via PHP API)
 // ============================================================================
 
-const getLocalData = <T>(key: string, defaultValue: T): T => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
-};
-
-const setLocalData = <T>(key: string, data: T): void => {
-  localStorage.setItem(key, JSON.stringify(data));
-};
-
-// ============================================================================
-// Booking Operations
-// ============================================================================
-
-/**
- * Ambil semua bookings
- */
 export const getBookings = async (): Promise<Booking[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("bookings")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("[AdminService] getBookings error:", error);
-      return [];
+  try {
+    const response = await apiClient.getBookings();
+    if (response.success && response.data) {
+      const rawData = Array.isArray(response.data) ? response.data : [];
+      return (rawData as Array<Record<string, unknown>>).map((row) => ({
+        id: row.id as string,
+        orderNumber: (row.order_number as string) || '',
+        customerId: (row.customer_id as string) || '',
+        customerName: (row.customer_name as string) || '',
+        customerEmail: (row.customer_email as string) || '',
+        customerPhone: (row.customer_phone as string) || '',
+        packageId: (row.package_id as string) || '',
+        packageName: (row.package_name as string) || '',
+        packagePrice: Number(row.package_price) || 0,
+        addonIds: (row.addon_ids as string[]) || [],
+        addonTotal: Number(row.addon_total) || 0,
+        eventDate: (row.event_date as string) || '',
+        eventLocation: (row.event_location as string) || '',
+        eventType: (row.event_type as string) || '',
+        serviceType: (row.service_type as string) || '',
+        totalAmount: Number(row.total_amount) || 0,
+        dpAmount: Number(row.dp_amount) || 0,
+        paidAmount: Number(row.paid_amount) || 0,
+        remainingAmount: Number(row.remaining_amount) || 0,
+        status: (row.status as BookingStatus) || 'pending',
+        notes: (row.notes as string) || '',
+        createdAt: (row.created_at as string) || '',
+        updatedAt: (row.updated_at as string) || '',
+      }));
     }
-
-    return data || [];
+  } catch (err) {
+    console.warn("[AdminService] getBookings error:", err);
   }
-
   return getLocalData<Booking[]>(STORAGE_KEYS.bookings, []);
 };
 
-/**
- * Ambil booking by ID
- */
 export const getBookingById = async (id: string): Promise<Booking | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("bookings")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !data) return null;
-    return data;
+  try {
+    const response = await apiClient.getBookingById(id);
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        id: row.id as string,
+        orderNumber: (row.order_number as string) || '',
+        customerId: (row.customer_id as string) || '',
+        customerName: (row.customer_name as string) || '',
+        customerEmail: (row.customer_email as string) || '',
+        customerPhone: (row.customer_phone as string) || '',
+        packageId: (row.package_id as string) || '',
+        packageName: (row.package_name as string) || '',
+        packagePrice: Number(row.package_price) || 0,
+        addonIds: [],
+        addonTotal: Number(row.addon_total) || 0,
+        eventDate: (row.event_date as string) || '',
+        eventLocation: (row.event_location as string) || '',
+        eventType: (row.event_type as string) || '',
+        serviceType: (row.service_type as string) || '',
+        totalAmount: Number(row.total_amount) || 0,
+        dpAmount: Number(row.dp_amount) || 0,
+        paidAmount: Number(row.paid_amount) || 0,
+        remainingAmount: Number(row.remaining_amount) || 0,
+        status: (row.status as BookingStatus) || 'pending',
+        notes: (row.notes as string) || '',
+        createdAt: (row.created_at as string) || '',
+        updatedAt: (row.updated_at as string) || '',
+      };
+    }
+  } catch (err) {
+    console.warn("[AdminService] getBookingById error:", err);
   }
-
-  const bookings = getLocalData<Booking[]>(STORAGE_KEYS.bookings, []);
-  return bookings.find((b) => b.id === id) || null;
+  return null;
 };
 
-/**
- * Ambil booking by order number
- */
-export const getBookingByOrderNumber = async (orderNumber: string): Promise<Booking | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("bookings")
-      .select("*")
-      .eq("order_number", orderNumber)
-      .single();
-
-    if (error || !data) return null;
-    return data;
-  }
-
-  const bookings = getLocalData<Booking[]>(STORAGE_KEYS.bookings, []);
-  return bookings.find((b) => b.orderNumber === orderNumber) || null;
-};
-
-/**
- * Buat booking baru
- */
 export const createBooking = async (
   bookingData: Omit<Booking, "id" | "orderNumber" | "createdAt" | "updatedAt">
 ): Promise<Booking | null> => {
-  const now = new Date().toISOString();
-  const newBooking: Booking = {
-    ...bookingData,
-    id: generateId(),
-    orderNumber: generateOrderNumber(),
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("bookings")
-      .insert({
-        id: newBooking.id,
-        order_number: newBooking.orderNumber,
-        customer_id: newBooking.customerId,
-        customer_name: newBooking.customerName,
-        customer_email: newBooking.customerEmail,
-        customer_phone: newBooking.customerPhone,
-        package_id: newBooking.packageId,
-        package_name: newBooking.packageName,
-        package_price: newBooking.packagePrice,
-        addon_ids: newBooking.addonIds,
-        addon_total: newBooking.addonTotal,
-        event_date: newBooking.eventDate,
-        event_location: newBooking.eventLocation,
-        event_type: newBooking.eventType,
-        service_type: newBooking.serviceType,
-        total_amount: newBooking.totalAmount,
-        dp_amount: newBooking.dpAmount,
-        paid_amount: newBooking.paidAmount,
-        remaining_amount: newBooking.remainingAmount,
-        status: newBooking.status,
-        notes: newBooking.notes,
-        created_at: now,
-        updated_at: now,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("[AdminService] createBooking error:", error);
-      return null;
+  try {
+    const response = await apiClient.createBooking(bookingData);
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        ...bookingData,
+        id: row.id as string,
+        orderNumber: (row.order_number as string) || '',
+        createdAt: (row.created_at as string) || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
     }
-
-    return data;
+  } catch (err) {
+    console.warn("[AdminService] createBooking error:", err);
   }
-
-  // Fallback
-  const bookings = getLocalData<Booking[]>(STORAGE_KEYS.bookings, []);
-  bookings.unshift(newBooking);
-  setLocalData(STORAGE_KEYS.bookings, bookings);
-  return newBooking;
+  return null;
 };
 
-/**
- * Update booking
- */
 export const updateBooking = async (
   id: string,
   updates: Partial<Booking>
 ): Promise<boolean> => {
-  const timestamp = new Date().toISOString();
-
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client
-      .from("bookings")
-      .update({ ...updates, updated_at: timestamp })
-      .eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] updateBooking error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.updateBooking(id, updates);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] updateBooking error:", err);
+    return false;
   }
-
-  // Fallback
-  const bookings = getLocalData<Booking[]>(STORAGE_KEYS.bookings, []);
-  const updatedBookings = bookings.map((b) =>
-    b.id === id ? { ...b, ...updates, updatedAt: timestamp } : b
-  );
-  setLocalData(STORAGE_KEYS.bookings, updatedBookings);
-  return true;
 };
 
-/**
- * Update booking status
- */
 export const updateBookingStatus = async (
   id: string,
   status: BookingStatus
@@ -324,709 +240,380 @@ export const updateBookingStatus = async (
   return updateBooking(id, { status });
 };
 
-/**
- * Hapus booking
- */
 export const deleteBooking = async (id: string): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client.from("bookings").delete().eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] deleteBooking error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.delete(`/bookings/${id}`);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] deleteBooking error:", err);
+    return false;
   }
-
-  // Fallback
-  const bookings = getLocalData<Booking[]>(STORAGE_KEYS.bookings, []);
-  setLocalData(
-    STORAGE_KEYS.bookings,
-    bookings.filter((b) => b.id !== id)
-  );
-  return true;
 };
 
 // ============================================================================
-// Customer Operations
+// Customer Operations (via PHP API)
 // ============================================================================
 
-/**
- * Ambil semua customers
- */
 export const getCustomers = async (): Promise<Customer[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("customers")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("[AdminService] getCustomers error:", error);
-      return [];
+  try {
+    const response = await apiClient.getCustomers();
+    if (response.success && response.data) {
+      const rawData = Array.isArray(response.data) ? response.data : [];
+      return (rawData as Array<Record<string, unknown>>).map((row) => ({
+        id: row.id as string,
+        name: (row.name as string) || '',
+        email: (row.email as string) || '',
+        phone: (row.phone as string) || '',
+        address: (row.address as string) || '',
+        notes: (row.notes as string) || '',
+        createdAt: (row.created_at as string) || '',
+      }));
     }
-
-    return data || [];
+  } catch (err) {
+    console.warn("[AdminService] getCustomers error:", err);
   }
-
   return getLocalData<Customer[]>(STORAGE_KEYS.customers, []);
 };
 
-/**
- * Ambil customer by ID
- */
 export const getCustomerById = async (id: string): Promise<Customer | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("customers")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !data) return null;
-    return data;
+  try {
+    const response = await apiClient.getCustomerById(id);
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        id: row.id as string,
+        name: (row.name as string) || '',
+        email: (row.email as string) || '',
+        phone: (row.phone as string) || '',
+        address: (row.address as string) || '',
+        notes: (row.notes as string) || '',
+        createdAt: (row.created_at as string) || '',
+      };
+    }
+  } catch (err) {
+    console.warn("[AdminService] getCustomerById error:", err);
   }
-
-  const customers = getLocalData<Customer[]>(STORAGE_KEYS.customers, []);
-  return customers.find((c) => c.id === id) || null;
+  return null;
 };
 
-/**
- * Buat customer baru
- */
 export const createCustomer = async (
   customerData: Omit<Customer, "id" | "createdAt">
 ): Promise<Customer | null> => {
-  const newCustomer: Customer = {
-    ...customerData,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-  };
-
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("customers")
-      .insert({
-        id: newCustomer.id,
-        name: newCustomer.name,
-        email: newCustomer.email,
-        phone: newCustomer.phone,
-        address: newCustomer.address,
-        notes: newCustomer.notes,
-        created_at: newCustomer.createdAt,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("[AdminService] createCustomer error:", error);
-      return null;
+  try {
+    const response = await apiClient.createCustomer(customerData);
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        ...customerData,
+        id: row.id as string || generateId(),
+        createdAt: (row.created_at as string) || new Date().toISOString(),
+      };
     }
-
-    return data;
+  } catch (err) {
+    console.warn("[AdminService] createCustomer error:", err);
   }
-
-  // Fallback
-  const customers = getLocalData<Customer[]>(STORAGE_KEYS.customers, []);
-  customers.unshift(newCustomer);
-  setLocalData(STORAGE_KEYS.customers, customers);
-  return newCustomer;
+  return null;
 };
 
-/**
- * Update customer
- */
 export const updateCustomer = async (
   id: string,
   updates: Partial<Customer>
 ): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client
-      .from("customers")
-      .update(updates)
-      .eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] updateCustomer error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.updateCustomer(id, updates);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] updateCustomer error:", err);
+    return false;
   }
-
-  // Fallback
-  const customers = getLocalData<Customer[]>(STORAGE_KEYS.customers, []);
-  const updatedCustomers = customers.map((c) => (c.id === id ? { ...c, ...updates } : c));
-  setLocalData(STORAGE_KEYS.customers, updatedCustomers);
-  return true;
 };
 
-/**
- * Hapus customer
- */
 export const deleteCustomer = async (id: string): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client.from("customers").delete().eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] deleteCustomer error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.delete(`/customers/${id}`);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] deleteCustomer error:", err);
+    return false;
   }
-
-  // Fallback
-  const customers = getLocalData<Customer[]>(STORAGE_KEYS.customers, []);
-  setLocalData(
-    STORAGE_KEYS.customers,
-    customers.filter((c) => c.id !== id)
-  );
-  return true;
 };
 
 // ============================================================================
-// Payment Operations
+// Payment Operations (via PHP API)
 // ============================================================================
 
-/**
- * Ambil semua payments
- */
 export const getPayments = async (): Promise<Payment[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("payments")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("[AdminService] getPayments error:", error);
-      return [];
+  try {
+    const response = await apiClient.getPayments();
+    if (response.success && response.data) {
+      const rawData = Array.isArray(response.data) ? response.data : [];
+      return (rawData as Array<Record<string, unknown>>).map((row) => ({
+        id: row.id as string,
+        bookingId: (row.booking_id as string) || '',
+        bookingOrderNumber: (row.booking_order_number as string) || '',
+        customerName: (row.customer_name as string) || '',
+        amount: Number(row.amount) || 0,
+        method: (row.method as "transfer" | "cash" | "other") || 'transfer',
+        status: (row.status as PaymentStatus) || 'pending',
+        type: (row.payment_type as "dp" | "final_payment") || 'dp',
+        proofImage: (row.proof_image_url as string) || (row.proofImage as string) || '',
+        notes: (row.notes as string) || '',
+        verifiedBy: (row.verified_by as string) || '',
+        verifiedAt: (row.verified_at as string) || '',
+        createdAt: (row.created_at as string) || '',
+      }));
     }
-
-    return data || [];
+  } catch (err) {
+    console.warn("[AdminService] getPayments error:", err);
   }
-
   return getLocalData<Payment[]>(STORAGE_KEYS.payments, []);
 };
 
-/**
- * Ambil payments by booking ID
- */
 export const getPaymentsByBookingId = async (bookingId: string): Promise<Payment[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("payments")
-      .select("*")
-      .eq("booking_id", bookingId)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("[AdminService] getPaymentsByBookingId error:", error);
-      return [];
+  try {
+    const response = await apiClient.getPayments({ booking_id: bookingId });
+    if (response.success && response.data) {
+      const rawData = Array.isArray(response.data) ? response.data : [];
+      return rawData as unknown as Payment[];
     }
-
-    return data || [];
+  } catch (err) {
+    console.warn("[AdminService] getPaymentsByBookingId error:", err);
   }
-
   const payments = getLocalData<Payment[]>(STORAGE_KEYS.payments, []);
   return payments.filter((p) => p.bookingId === bookingId);
 };
 
-/**
- * Buat payment baru
- */
 export const createPayment = async (
   paymentData: Omit<Payment, "id" | "createdAt">
 ): Promise<Payment | null> => {
-  const newPayment: Payment = {
-    ...paymentData,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-  };
+  try {
+    const response = await apiClient.createPayment({
+      booking_id: paymentData.bookingId,
+      booking_order_number: paymentData.bookingOrderNumber,
+      customer_name: paymentData.customerName,
+      amount: paymentData.amount,
+      method: paymentData.method,
+      type: paymentData.type,
+      proof_image: paymentData.proofImage,
+      notes: paymentData.notes,
+    });
 
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("payments")
-      .insert({
-        id: newPayment.id,
-        booking_id: newPayment.bookingId,
-        booking_order_number: newPayment.bookingOrderNumber,
-        customer_name: newPayment.customerName,
-        amount: newPayment.amount,
-        method: newPayment.method,
-        status: newPayment.status,
-        payment_type: newPayment.type,
-        proof_image_url: newPayment.proofImage,
-        notes: newPayment.notes,
-        verified_by: newPayment.verifiedBy,
-        verified_at: newPayment.verifiedAt,
-        created_at: newPayment.createdAt,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("[AdminService] createPayment error:", error);
-      return null;
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        ...paymentData,
+        id: row.id as string || generateId(),
+        createdAt: (row.created_at as string) || new Date().toISOString(),
+      };
     }
-
-    return data;
+  } catch (err) {
+    console.warn("[AdminService] createPayment error:", err);
   }
-
-  // Fallback
-  const payments = getLocalData<Payment[]>(STORAGE_KEYS.payments, []);
-  payments.unshift(newPayment);
-  setLocalData(STORAGE_KEYS.payments, payments);
-  return newPayment;
+  return null;
 };
 
-/**
- * Update payment status
- */
 export const updatePaymentStatus = async (
   id: string,
   status: PaymentStatus,
   verifiedBy?: string
 ): Promise<boolean> => {
-  const timestamp = new Date().toISOString();
-
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const updates: Record<string, string> = { status };
-    if (verifiedBy) {
-      updates.verified_by = verifiedBy;
-      updates.verified_at = timestamp;
-    }
-
-    const { error } = await client
-      .from("payments")
-      .update(updates)
-      .eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] updatePaymentStatus error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = status === 'verified'
+      ? await apiClient.verifyPayment(id)
+      : await apiClient.rejectPayment(id);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] updatePaymentStatus error:", err);
+    return false;
   }
-
-  // Fallback
-  const payments = getLocalData<Payment[]>(STORAGE_KEYS.payments, []);
-  const updatedPayments = payments.map((p) =>
-    p.id === id
-      ? {
-          ...p,
-          status,
-          verifiedBy: verifiedBy || p.verifiedBy,
-          verifiedAt: status === "verified" || status === "rejected" ? timestamp : p.verifiedAt,
-        }
-      : p
-  );
-  setLocalData(STORAGE_KEYS.payments, updatedPayments);
-  return true;
 };
 
 // ============================================================================
-// Calendar Operations
+// Calendar Operations (via PHP API)
 // ============================================================================
 
-/**
- * Ambil semua calendar events
- */
 export const getCalendarEvents = async (): Promise<CalendarEvent[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("calendar_events")
-      .select("*")
-      .order("date", { ascending: true });
-
-    if (error) {
-      console.error("[AdminService] getCalendarEvents error:", error);
-      return [];
+  try {
+    const response = await apiClient.getCalendarEvents();
+    if (response.success && response.data) {
+      const rawData = Array.isArray(response.data) ? response.data : [];
+      return (rawData as Array<Record<string, unknown>>).map((row) => ({
+        id: row.id as string,
+        date: (row.event_date as string) || (row.date as string) || '',
+        title: (row.title as string) || '',
+        type: (row.event_type as "booking" | "blocked" | "event") || 'event',
+        bookingId: row.booking_id as string | undefined,
+        description: (row.description as string) || '',
+        createdBy: (row.created_by as string) || '',
+      }));
     }
-
-    return data || [];
+  } catch (err) {
+    console.warn("[AdminService] getCalendarEvents error:", err);
   }
-
   return getLocalData<CalendarEvent[]>(STORAGE_KEYS.calendar, []);
 };
 
-/**
- * Ambil calendar events by date range
- */
 export const getCalendarEventsByRange = async (
   startDate: string,
   endDate: string
 ): Promise<CalendarEvent[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("calendar_events")
-      .select("*")
-      .gte("date", startDate)
-      .lte("date", endDate)
-      .order("date", { ascending: true });
-
-    if (error) {
-      console.error("[AdminService] getCalendarEventsByRange error:", error);
-      return [];
+  try {
+    const response = await apiClient.getCalendarEvents({ date_from: startDate, date_to: endDate });
+    if (response.success && response.data) {
+      const rawData = Array.isArray(response.data) ? response.data : [];
+      return rawData as unknown as CalendarEvent[];
     }
-
-    return data || [];
+  } catch (err) {
+    console.warn("[AdminService] getCalendarEventsByRange error:", err);
   }
-
   const events = getLocalData<CalendarEvent[]>(STORAGE_KEYS.calendar, []);
   return events.filter((e) => e.date >= startDate && e.date <= endDate);
 };
 
-/**
- * Buat calendar event baru
- */
 export const createCalendarEvent = async (
   eventData: Omit<CalendarEvent, "id">
 ): Promise<CalendarEvent | null> => {
-  const newEvent: CalendarEvent = {
-    ...eventData,
-    id: generateId(),
-  };
+  try {
+    const response = await apiClient.createCalendarEvent({
+      event_date: eventData.date,
+      title: eventData.title,
+      event_type: eventData.type,
+      description: eventData.description,
+    });
 
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("calendar_events")
-      .insert({
-        id: newEvent.id,
-        date: newEvent.date,
-        title: newEvent.title,
-        type: newEvent.type,
-        booking_id: newEvent.bookingId,
-        description: newEvent.description,
-        created_by: newEvent.createdBy,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("[AdminService] createCalendarEvent error:", error);
-      return null;
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        ...eventData,
+        id: row.id as string || generateId(),
+      };
     }
-
-    return data;
+  } catch (err) {
+    console.warn("[AdminService] createCalendarEvent error:", err);
   }
-
-  // Fallback
-  const events = getLocalData<CalendarEvent[]>(STORAGE_KEYS.calendar, []);
-  events.push(newEvent);
-  setLocalData(STORAGE_KEYS.calendar, events);
-  return newEvent;
+  return null;
 };
 
-/**
- * Update calendar event
- */
 export const updateCalendarEvent = async (
   id: string,
   updates: Partial<CalendarEvent>
 ): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client
-      .from("calendar_events")
-      .update(updates)
-      .eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] updateCalendarEvent error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.updateCalendarEvent(id, updates);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] updateCalendarEvent error:", err);
+    return false;
   }
-
-  // Fallback
-  const events = getLocalData<CalendarEvent[]>(STORAGE_KEYS.calendar, []);
-  const updatedEvents = events.map((e) => (e.id === id ? { ...e, ...updates } : e));
-  setLocalData(STORAGE_KEYS.calendar, updatedEvents);
-  return true;
 };
 
-/**
- * Hapus calendar event
- */
 export const deleteCalendarEvent = async (id: string): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client.from("calendar_events").delete().eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] deleteCalendarEvent error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.deleteCalendarEvent(id);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] deleteCalendarEvent error:", err);
+    return false;
   }
-
-  // Fallback
-  const events = getLocalData<CalendarEvent[]>(STORAGE_KEYS.calendar, []);
-  setLocalData(
-    STORAGE_KEYS.calendar,
-    events.filter((e) => e.id !== id)
-  );
-  return true;
 };
 
 // ============================================================================
-// Admin User Operations
+// Admin User Operations (via PHP API)
 // ============================================================================
 
-/**
- * Ambil semua admin users
- */
 export const getAdminUsers = async (): Promise<AdminUser[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("admin_users")
-      .select("*")
-      .order("created_at", { ascending: true });
-
-    if (error) {
-      console.error("[AdminService] getAdminUsers error:", error);
-      return [];
+  try {
+    const response = await apiClient.getStaff();
+    if (response.success && response.data) {
+      const rawData = Array.isArray(response.data) ? response.data : [];
+      return (rawData as Array<Record<string, unknown>>).map((row) => ({
+        id: row.id as string,
+        username: (row.username as string) || (row.email as string) || '',
+        name: (row.name as string) || '',
+        role: (row.role as AdminRole) || 'staff',
+        isActive: Boolean(row.is_active ?? true),
+        lastLogin: row.last_login as string | undefined,
+        createdAt: (row.created_at as string) || '',
+      }));
     }
-
-    return data || [];
+  } catch (err) {
+    console.warn("[AdminService] getAdminUsers error:", err);
   }
-
   return getLocalData<AdminUser[]>(STORAGE_KEYS.admins, []);
 };
 
-/**
- * Ambil admin user by ID
- */
 export const getAdminUserById = async (id: string): Promise<AdminUser | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("admin_users")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !data) return null;
-    return data;
+  try {
+    const response = await apiClient.getStaffById(id);
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        id: row.id as string,
+        username: (row.username as string) || (row.email as string) || '',
+        name: (row.name as string) || '',
+        role: (row.role as AdminRole) || 'staff',
+        isActive: Boolean(row.is_active ?? true),
+        lastLogin: row.last_login as string | undefined,
+        createdAt: (row.created_at as string) || '',
+      };
+    }
+  } catch (err) {
+    console.warn("[AdminService] getAdminUserById error:", err);
   }
-
-  const admins = getLocalData<AdminUser[]>(STORAGE_KEYS.admins, []);
-  return admins.find((a) => a.id === id) || null;
+  return null;
 };
 
-/**
- * Buat admin user baru
- */
 export const createAdminUser = async (
   adminData: Omit<AdminUser, "id" | "createdAt" | "lastLogin">
 ): Promise<AdminUser | null> => {
-  const newAdmin: AdminUser = {
-    ...adminData,
-    id: generateId(),
-    createdAt: new Date().toISOString(),
-  };
-
-  if (isSupabaseConfigured()) {
-    console.warn("[AdminService] createAdminUser disabled in Supabase mode. Use staffUserService/create-staff-user Edge Function.");
-    return null;
+  try {
+    const response = await apiClient.createStaff(adminData);
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        ...adminData,
+        id: row.id as string || generateId(),
+        createdAt: (row.created_at as string) || new Date().toISOString(),
+      };
+    }
+  } catch (err) {
+    console.warn("[AdminService] createAdminUser error:", err);
   }
-
-  // Fallback
-  const admins = getLocalData<AdminUser[]>(STORAGE_KEYS.admins, []);
-  admins.push(newAdmin);
-  setLocalData(STORAGE_KEYS.admins, admins);
-  return newAdmin;
+  return null;
 };
 
-/**
- * Update admin user
- */
 export const updateAdminUser = async (
   id: string,
   updates: Partial<AdminUser>
 ): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client
-      .from("admin_users")
-      .update(updates)
-      .eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] updateAdminUser error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.updateStaff(id, updates);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] updateAdminUser error:", err);
+    return false;
   }
-
-  // Fallback
-  const admins = getLocalData<AdminUser[]>(STORAGE_KEYS.admins, []);
-  const updatedAdmins = admins.map((a) => (a.id === id ? { ...a, ...updates } : a));
-  setLocalData(STORAGE_KEYS.admins, updatedAdmins);
-  return true;
 };
 
-/**
- * Hapus admin user
- */
 export const deleteAdminUser = async (id: string): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client.from("admin_users").delete().eq("id", id);
-
-    if (error) {
-      console.error("[AdminService] deleteAdminUser error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.deleteStaff(id);
+    return response.success;
+  } catch (err) {
+    console.warn("[AdminService] deleteAdminUser error:", err);
+    return false;
   }
-
-  // Fallback
-  const admins = getLocalData<AdminUser[]>(STORAGE_KEYS.admins, []);
-  setLocalData(
-    STORAGE_KEYS.admins,
-    admins.filter((a) => a.id !== id)
-  );
-  return true;
 };
 
 // ============================================================================
-// Analytics Operations
+// Analytics Operations (localStorage fallback)
 // ============================================================================
 
-/**
- * Ambil analytics data
- */
 export const getAnalytics = async (): Promise<AnalyticsData[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("analytics")
-      .select("*")
-      .order("date", { ascending: false });
-
-    if (error) {
-      console.error("[AdminService] getAnalytics error:", error);
-      return [];
-    }
-
-    return data || [];
-  }
-
   return getLocalData<AnalyticsData[]>(STORAGE_KEYS.analytics, []);
 };
 
-/**
- * Tambah/Update analytics data untuk satu tanggal
- */
 export const addAnalytics = async (data: AnalyticsData): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    // Check if exists
-    const { data: existing } = await client
-      .from("analytics")
-      .select("*")
-      .eq("date", data.date)
-      .single();
-
-    if (existing) {
-      // Update
-      const { error } = await client
-        .from("analytics")
-        .update({
-          views: existing.views + data.views,
-          bookings: existing.bookings + data.bookings,
-          revenue: existing.revenue + data.revenue,
-        })
-        .eq("date", data.date);
-
-      if (error) {
-        console.error("[AdminService] addAnalytics update error:", error);
-        return false;
-      }
-    } else {
-      // Insert
-      const { error } = await client.from("analytics").insert({
-        date: data.date,
-        views: data.views,
-        bookings: data.bookings,
-        revenue: data.revenue,
-      });
-
-      if (error) {
-        console.error("[AdminService] addAnalytics insert error:", error);
-        return false;
-      }
-    }
-
-    return true;
-  }
-
-  // Fallback
   const analytics = getLocalData<AnalyticsData[]>(STORAGE_KEYS.analytics, []);
   const existingIndex = analytics.findIndex((a) => a.date === data.date);
 
@@ -1049,9 +636,6 @@ export const addAnalytics = async (data: AnalyticsData): Promise<boolean> => {
 // Stats Helpers
 // ============================================================================
 
-/**
- * Hitung stats untuk dashboard
- */
 export const calculateStats = async (): Promise<{
   totalBookings: number;
   pendingBookings: number;

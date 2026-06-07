@@ -8,7 +8,7 @@ dist/
 .env
 .env.*
 !.env.example
-!.env.example
+!.env.local.example
 .env.local
 .env.production
 
@@ -53,3 +53,21 @@ uploads/
 
 # Environment files
 .env.local
+.env.production
+api/.env.local
+userdb
+u812657814_danivisual
+
+# Sensitive reports
+HOSTINGER_DB_INTEGRATION_REPORT.md
+GIT_HOSTINGER_DEPLOY_REPORT.md
+DEPLOY_HOSTINGER_GIT.md
+DANIVISUAL_ANALISA_PERBAIKAN.md
+
+# Backup files
+BACKUP-*/
+BACKUP-*.md
+BACKUP-*.patch
+
+# GitHub secrets
+.github/SECRETS_SETUP.md

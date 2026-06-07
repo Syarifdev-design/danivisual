@@ -1,52 +1,36 @@
 <?php
-/**
- * Register Endpoint
- * POST /api/auth/register.php
- */
-
-declare(strict_types=1);
+// Register endpoint
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../helpers/response.php';
 require_once __DIR__ . '/../helpers/auth.php';
 
+header('Content-Type: application/json');
+
 try {
-    // Require admin to create users (for now, disable public registration)
-    if (APP_ENV === 'production') {
+    // Only allow registration in dev or if admin
+    if (getenv('APP_ENV') === 'production') {
         requireSuperAdmin();
     }
-
-    $data = getRequestBody();
-
-    // Validate required fields
-    $errors = validateRequired($data, ['email', 'name']);
-    if ($errors !== null) {
-        errorResponse('Validation failed', 400, $errors);
+    $body = getRequestBody();
+    if (empty($body['email']) || empty($body['name'])) {
+        echo json_encode(['success' => false, 'message' => 'Email and name required']);
+        exit;
     }
-
-    // Validate email format
-    if (!filter_var($data['email'], FILTER_VALIDATE_EMAIL)) {
-        errorResponse('Email tidak valid', 400);
+    if (!filter_var($body['email'], FILTER_VALIDATE_EMAIL)) {
+        http_response_code(400);
+        echo json_encode(['success' => false, 'message' => 'Invalid email']);
+        exit;
     }
-
-    // Validate password for new users (if provided)
-    if (isset($data['password']) && strlen($data['password']) < 6) {
-        errorResponse('Password minimal 6 karakter', 400);
+    $user = createUser($body);
+    if (!$user) {
+        http_response_code(409);
+        echo json_encode(['success' => false, 'message' => 'Email already exists']);
+        exit;
     }
-
-    // Create user
-    $user = createUser($data);
-
-    if ($user === null) {
-        errorResponse('Email sudah terdaftar', 409);
-    }
-
-    // Remove password hash from response
-    unset($user['password_hash']);
-
-    successResponse($user, 'User berhasil dibuat', 201);
-
+    echo json_encode(['success' => true, 'message' => 'User created', 'data' => $user]);
 } catch (Exception $e) {
     error_log('Register error: ' . $e->getMessage());
-    errorResponse('Terjadi kesalahan saat registrasi', 500);
+    http_response_code(500);
+    echo json_encode(['success' => false, 'message' => 'Server error']);
 }

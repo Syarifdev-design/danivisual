@@ -6,10 +6,11 @@
  * - Booking Submissions
  * - Booking Status Updates
  *
- * Menggunakan Supabase dengan localStorage fallback.
+ * Sumber utama: PHP API
+ * Fallback: localStorage (booking state only)
  */
 
-import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabaseClient";
+import { apiClient, getLocalData, setLocalData } from "../lib/apiClient";
 
 // ============================================================================
 // Types
@@ -128,12 +129,9 @@ const defaultState: BookingState = {
 };
 
 // ============================================================================
-// LocalStorage Operations
+// Booking State Operations (localStorage - session only)
 // ============================================================================
 
-/**
- * Ambil booking state dari localStorage
- */
 export const getBookingState = (): BookingState => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY) || localStorage.getItem(LEGACY_STORAGE_KEY);
@@ -147,7 +145,6 @@ export const getBookingState = (): BookingState => {
       eventData: {
         ...defaultEventData,
         ...(state.eventData || {}),
-        // Normalize field names
         coupleName: state.eventData?.coupleName || state.eventData?.eventName || "",
         activeWhatsapp: state.eventData?.activeWhatsapp || state.eventData?.whatsapp || "",
         instagramUsername: state.eventData?.instagramUsername || state.eventData?.instagram || "",
@@ -160,41 +157,30 @@ export const getBookingState = (): BookingState => {
   }
 };
 
-/**
- * Simpan booking state ke localStorage
- */
 export const saveBookingState = (state: BookingState): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
 };
 
-/**
- * Hapus booking state dari localStorage
- */
 export const clearBookingState = (): void => {
   localStorage.removeItem(STORAGE_KEY);
   localStorage.removeItem(LEGACY_STORAGE_KEY);
 };
 
-/**
- * Update sebagian booking state
- */
 export const updateBookingState = (updates: Partial<BookingState>): BookingState => {
   const currentState = getBookingState();
   const newState = { ...currentState, ...updates };
 
-  // Special handling for eventData
   if (updates.eventData) {
     newState.eventData = {
       ...currentState.eventData,
       ...updates.eventData,
-      // Normalize field names
       coupleName: updates.eventData.coupleName || updates.eventData.eventName || currentState.eventData.coupleName,
       eventName: updates.eventData.coupleName || updates.eventData.eventName || currentState.eventData.eventName,
       customerName: updates.eventData.coupleName || updates.eventData.eventName || currentState.eventData.customerName,
       activeWhatsapp: updates.eventData.activeWhatsapp || updates.eventData.whatsapp || currentState.eventData.activeWhatsapp,
       whatsapp: updates.eventData.activeWhatsapp || updates.eventData.whatsapp || currentState.eventData.whatsapp,
       instagramUsername: updates.eventData.instagramUsername || updates.eventData.instagram || currentState.eventData.instagramUsername,
-      instagram: updates.eventData.instagramUsername || updates.eventData.instagram || currentState.eventData.instagram,
+      instagram: updates.eventData.instagramUsername || updates.eventData.instagram || currentState.eventData.instagramUsername,
       eventLocationAddress: updates.eventData.eventLocationAddress || updates.eventData.location || currentState.eventData.eventLocationAddress,
       location: updates.eventData.eventLocationAddress || updates.eventData.location || currentState.eventData.location,
       googleMapsLink: updates.eventData.googleMapsLink || updates.eventData.mapsLink || currentState.eventData.googleMapsLink,
@@ -207,12 +193,9 @@ export const updateBookingState = (updates: Partial<BookingState>): BookingState
 };
 
 // ============================================================================
-// Booking Submission
+// Booking Submission (via PHP API)
 // ============================================================================
 
-/**
- * Submit booking baru ke database
- */
 export const submitBooking = async (
   state: BookingState,
   packageDetails: {
@@ -225,9 +208,8 @@ export const submitBooking = async (
 ): Promise<{ success: boolean; orderNumber?: string; error?: string }> => {
   const orderNumber = generateOrderNumber();
   const totalAmount = packageDetails.price + addons.reduce((sum, a) => sum + a.price * a.quantity, 0);
-  const dpAmount = 500000; // From bookingData.ts
+  const dpAmount = 500000;
 
-  // Map event data to backend format
   const eventInfo = {
     coupleName: state.eventData.coupleName || state.eventData.eventName,
     eventDate: state.eventData.eventDate,
@@ -235,85 +217,37 @@ export const submitBooking = async (
     eventLocation: state.eventData.eventLocationAddress || state.eventData.location,
   };
 
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) {
-      return { success: false, error: "Database not available" };
-    }
-
-    // First, create or get customer
-    let customerId = "";
-
-    // Check if customer exists by phone
-    const { data: existingCustomer } = await client
-      .from("customers")
-      .select("id")
-      .eq("phone", state.eventData.activeWhatsapp || state.eventData.whatsapp)
-      .single();
-
-    if (existingCustomer) {
-      customerId = existingCustomer.id;
-    } else {
-      // Create new customer
-      const { data: newCustomer, error: customerError } = await client
-        .from("customers")
-        .insert({
-          name: eventInfo.coupleName,
-          email: state.eventData.email || "",
-          phone: state.eventData.activeWhatsapp || state.eventData.whatsapp || "",
-          address: state.eventData.fullAddress || "",
-          instagram: state.eventData.instagramUsername || state.eventData.instagram || "",
-        })
-        .select("id")
-        .single();
-
-      if (customerError) {
-        console.error("[BookingService] create customer error:", customerError);
-        return { success: false, error: "Failed to create customer" };
-      }
-
-      customerId = newCustomer.id;
-    }
-
-    // Create booking
-    const { error: bookingError } = await client.from("bookings").insert({
-      order_number: orderNumber,
-      customer_id: customerId,
+  try {
+    const response = await apiClient.createBooking({
       customer_name: eventInfo.coupleName,
       customer_email: state.eventData.email || "",
       customer_phone: state.eventData.activeWhatsapp || state.eventData.whatsapp || "",
       package_id: state.selectedPackageId,
       package_name: packageDetails.name,
       package_price: packageDetails.price,
-      addon_ids: addons.map((a) => a.id),
-      addon_total: addons.reduce((sum, a) => sum + a.price * a.quantity, 0),
       event_date: eventInfo.eventDate,
-      event_location: eventInfo.eventLocation || "",
+      event_time: eventInfo.eventTime,
+      event_location: eventInfo.eventLocation,
       event_type: packageDetails.categoryId,
       service_type: packageDetails.serviceType,
       total_amount: totalAmount,
-      dp_amount: dpAmount,
-      paid_amount: 0,
-      remaining_amount: totalAmount,
-      status: "pending",
       notes: state.eventData.adminNotes || "",
     });
 
-    if (bookingError) {
-      console.error("[BookingService] create booking error:", bookingError);
-      return { success: false, error: "Failed to create booking" };
+    if (response.success && response.data) {
+      const bookingData = response.data as Record<string, unknown>;
+      const returnedOrderNumber = (bookingData.order_number as string) || orderNumber;
+      updateBookingState({
+        bookingSubmitted: true,
+        orderNumber: returnedOrderNumber,
+      });
+      return { success: true, orderNumber: returnedOrderNumber };
     }
-
-    // Update booking state with order number
-    updateBookingState({
-      bookingSubmitted: true,
-      orderNumber,
-    });
-
-    return { success: true, orderNumber };
+  } catch (err) {
+    console.warn("[BookingService] submitBooking API error:", err);
   }
 
-  // Fallback: Save to localStorage (already handled by context)
+  // Fallback: save to localStorage
   updateBookingState({
     bookingSubmitted: true,
     orderNumber,
@@ -323,72 +257,47 @@ export const submitBooking = async (
 };
 
 // ============================================================================
-// Booking Status Operations
+// Booking Status Operations (via PHP API)
 // ============================================================================
 
-/**
- * Update status booking dari admin
- */
 export const updateBookingStatus = async (
   orderNumber: string,
   status: "pending" | "confirmed" | "in_progress" | "completed" | "cancelled"
 ): Promise<boolean> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const { error } = await client
-      .from("bookings")
-      .update({ status, updated_at: new Date().toISOString() })
-      .eq("order_number", orderNumber);
-
-    if (error) {
-      console.error("[BookingService] updateBookingStatus error:", error);
-      return false;
-    }
-
-    return true;
+  try {
+    const response = await apiClient.updateBooking(orderNumber, { status });
+    return response.success;
+  } catch (err) {
+    console.warn("[BookingService] updateBookingStatus error:", err);
+    return false;
   }
-
-  // Fallback: localStorage - handled by adminService
-  return false;
 };
 
-/**
- * Get booking by order number
- */
 export const getBookingByOrderNumber = async (
   orderNumber: string
 ): Promise<BookingRecord | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("bookings")
-      .select("*")
-      .eq("order_number", orderNumber)
-      .single();
-
-    if (error || !data) return null;
-
-    return {
-      id: data.id,
-      orderNumber: data.order_number,
-      customerName: data.customer_name,
-      packageName: data.package_name,
-      totalAmount: data.total_amount,
-      dpAmount: data.dp_amount,
-      paidAmount: data.paid_amount,
-      remainingAmount: data.remaining_amount,
-      status: data.status,
-      eventDate: data.event_date,
-      eventLocation: data.event_location,
-      createdAt: data.created_at,
-    };
+  try {
+    const response = await apiClient.getBookingById(orderNumber);
+    if (response.success && response.data) {
+      const row = response.data as Record<string, unknown>;
+      return {
+        id: row.id as string,
+        orderNumber: (row.order_number as string) || orderNumber,
+        customerName: (row.customer_name as string) || '',
+        packageName: (row.package_name as string) || '',
+        totalAmount: Number(row.total_amount) || 0,
+        dpAmount: Number(row.dp_amount) || 0,
+        paidAmount: Number(row.paid_amount) || 0,
+        remainingAmount: Number(row.remaining_amount) || 0,
+        status: (row.status as "pending" | "confirmed" | "in_progress" | "completed" | "cancelled") || 'pending',
+        eventDate: (row.event_date as string) || '',
+        eventLocation: (row.event_location as string) || '',
+        createdAt: (row.created_at as string) || new Date().toISOString(),
+      };
+    }
+  } catch (err) {
+    console.warn("[BookingService] getBookingByOrderNumber error:", err);
   }
-
-  // Fallback: Not available in localStorage for this service
   return null;
 };
 
@@ -396,9 +305,6 @@ export const getBookingByOrderNumber = async (
 // Payment Proof Upload
 // ============================================================================
 
-/**
- * Upload bukti pembayaran
- */
 export const uploadPaymentProof = async (
   orderNumber: string,
   file: File
@@ -409,41 +315,21 @@ export const uploadPaymentProof = async (
     reader.onload = async (e) => {
       const base64 = e.target?.result as string;
 
-      if (isSupabaseConfigured()) {
-        const client = getSupabaseClient();
-        if (client) {
-          try {
-            const fileName = `payment_${orderNumber}_${Date.now()}.${file.name.split(".").pop()}`;
-            const { error: uploadError } = await client.storage
-              .from("payment-proofs")
-              .upload(fileName, file);
+      try {
+        const response = await apiClient.createPayment({
+          booking_order_number: orderNumber,
+          amount: 500000,
+          method: "transfer",
+          type: "dp",
+          proof_image: base64,
+        });
 
-            if (!uploadError) {
-              const { data } = client.storage
-                .from("payment-proofs")
-                .getPublicUrl(fileName);
-
-              // Create payment record
-              const { error: paymentError } = await client.from("payments").insert({
-                booking_id: orderNumber,
-                booking_order_number: orderNumber,
-                customer_name: "",
-                amount: 500000, // DP amount
-                method: "transfer",
-                status: "pending",
-                payment_type: "dp",
-                proof_image_url: data.publicUrl,
-              });
-
-              if (!paymentError) {
-                resolve({ success: true, url: data.publicUrl });
-                return;
-              }
-            }
-          } catch (err) {
-            console.error("[BookingService] upload payment error:", err);
-          }
+        if (response.success) {
+          resolve({ success: true, url: base64 });
+          return;
         }
+      } catch (err) {
+        console.warn("[BookingService] uploadPaymentProof API error:", err);
       }
 
       // Fallback: use base64
@@ -478,24 +364,15 @@ export interface BookingRecord {
 // Session Management
 // ============================================================================
 
-/**
- * Start fresh booking session
- */
 export const startBookingSession = (): void => {
   saveBookingState(defaultState);
 };
 
-/**
- * Check if there's an active booking session
- */
 export const hasActiveBookingSession = (): boolean => {
   const state = getBookingState();
   return Boolean(state.selectedPackageId && state.bookingSubmitted);
 };
 
-/**
- * Get current booking session data
- */
 export const getCurrentBookingSession = (): BookingState => {
   return getBookingState();
 };

@@ -6,10 +6,10 @@
  * - Payment history
  * - Payment proof uploads
  *
- * Menggunakan Supabase dengan localStorage fallback.
+ * Menggunakan PHP API sebagai sumber utama dengan localStorage fallback.
  */
 
-import { getSupabaseClient, isSupabaseConfigured } from "../lib/supabaseClient";
+import { apiClient, getLocalData, setLocalData, FALLBACK_STORAGE_KEYS, generateId } from "../lib/apiClient";
 
 // ============================================================================
 // Types
@@ -47,26 +47,7 @@ export interface PaymentVerification {
 // LocalStorage Keys
 // ============================================================================
 
-const STORAGE_KEY = "danivisual_admin_payments";
-
-// ============================================================================
-// Helper Functions
-// ============================================================================
-
-const generateId = (): string => Date.now().toString(36) + Math.random().toString(36).substr(2);
-
-const getLocalData = <T>(key: string, defaultValue: T): T => {
-  try {
-    const stored = localStorage.getItem(key);
-    return stored ? JSON.parse(stored) : defaultValue;
-  } catch {
-    return defaultValue;
-  }
-};
-
-const setLocalData = <T>(key: string, data: T): void => {
-  localStorage.setItem(key, JSON.stringify(data));
-};
+const STORAGE_KEY = FALLBACK_STORAGE_KEYS.payments;
 
 // ============================================================================
 // Payment Operations
@@ -76,35 +57,14 @@ const setLocalData = <T>(key: string, data: T): void => {
  * Ambil semua payments
  */
 export const getPayments = async (): Promise<Payment[]> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return [];
-
-    const { data, error } = await client
-      .from("payments")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("[PaymentService] getPayments error:", error);
-      return [];
+  try {
+    const response = await apiClient.getPayments();
+    if (response.success && response.data) {
+      setLocalData(STORAGE_KEY, response.data);
+      return response.data as Payment[];
     }
-
-    return (data || []).map((row) => ({
-      id: row.id,
-      bookingId: row.booking_id,
-      bookingOrderNumber: row.booking_order_number,
-      customerName: row.customer_name,
-      amount: row.amount,
-      method: row.method as PaymentMethod,
-      status: row.status as PaymentStatus,
-      type: (row.payment_type || "dp") as PaymentType,
-      proofImage: row.proof_image_url || row.proof_image || "",
-      notes: row.notes || "",
-      verifiedBy: row.verified_by || "",
-      verifiedAt: row.verified_at || "",
-      createdAt: row.created_at,
-    }));
+  } catch (err) {
+    console.warn("[PaymentService] getPayments error:", err);
   }
 
   return getLocalData<Payment[]>(STORAGE_KEY, []);
@@ -122,6 +82,15 @@ export const getPaymentsByBookingId = async (bookingId: string): Promise<Payment
  * Ambil payments by order number
  */
 export const getPaymentsByOrderNumber = async (orderNumber: string): Promise<Payment[]> => {
+  try {
+    const response = await apiClient.getPayments({ order_number: orderNumber });
+    if (response.success && response.data) {
+      return response.data as Payment[];
+    }
+  } catch (err) {
+    console.warn("[PaymentService] getPaymentsByOrderNumber error:", err);
+  }
+
   const payments = await getPayments();
   return payments.filter((p) => p.bookingOrderNumber === orderNumber);
 };
@@ -130,6 +99,15 @@ export const getPaymentsByOrderNumber = async (orderNumber: string): Promise<Pay
  * Ambil pending payments (yang perlu diverifikasi)
  */
 export const getPendingPayments = async (): Promise<Payment[]> => {
+  try {
+    const response = await apiClient.getPayments({ status: "pending" });
+    if (response.success && response.data) {
+      return response.data as Payment[];
+    }
+  } catch (err) {
+    console.warn("[PaymentService] getPendingPayments error:", err);
+  }
+
   const payments = await getPayments();
   return payments.filter((p) => p.status === "pending");
 };
@@ -138,33 +116,13 @@ export const getPendingPayments = async (): Promise<Payment[]> => {
  * Ambil payment by ID
  */
 export const getPaymentById = async (id: string): Promise<Payment | null> => {
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
-
-    const { data, error } = await client
-      .from("payments")
-      .select("*")
-      .eq("id", id)
-      .single();
-
-    if (error || !data) return null;
-
-    return {
-      id: data.id,
-      bookingId: data.booking_id,
-      bookingOrderNumber: data.booking_order_number,
-      customerName: data.customer_name,
-      amount: data.amount,
-      method: data.method as PaymentMethod,
-      status: data.status as PaymentStatus,
-      type: (data.payment_type || "dp") as PaymentType,
-      proofImage: data.proof_image_url || data.proof_image || "",
-      notes: data.notes || "",
-      verifiedBy: data.verified_by || "",
-      verifiedAt: data.verified_at || "",
-      createdAt: data.created_at,
-    };
+  try {
+    const response = await apiClient.getPaymentById(id);
+    if (response.success && response.data) {
+      return response.data as Payment;
+    }
+  } catch (err) {
+    console.warn("[PaymentService] getPaymentById error:", err);
   }
 
   const payments = getLocalData<Payment[]>(STORAGE_KEY, []);
@@ -183,50 +141,26 @@ export const createPayment = async (
     createdAt: new Date().toISOString(),
   };
 
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return null;
+  try {
+    const response = await apiClient.createPayment({
+      booking_id: newPayment.bookingId,
+      booking_order_number: newPayment.bookingOrderNumber,
+      customer_name: newPayment.customerName,
+      amount: newPayment.amount,
+      method: newPayment.method,
+      payment_type: newPayment.type,
+      proof_image: newPayment.proofImage,
+      notes: newPayment.notes,
+    });
 
-    const { data, error } = await client
-      .from("payments")
-      .insert({
-        id: newPayment.id,
-        booking_id: newPayment.bookingId,
-        booking_order_number: newPayment.bookingOrderNumber,
-        customer_name: newPayment.customerName,
-        amount: newPayment.amount,
-        method: newPayment.method,
-        status: newPayment.status,
-        payment_type: newPayment.type,
-        proof_image_url: newPayment.proofImage,
-        notes: newPayment.notes,
-        verified_by: newPayment.verifiedBy,
-        verified_at: newPayment.verifiedAt,
-        created_at: newPayment.createdAt,
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error("[PaymentService] createPayment error:", error);
-      return null;
+    if (response.success) {
+      const payments = getLocalData<Payment[]>(STORAGE_KEY, []);
+      payments.unshift(newPayment);
+      setLocalData(STORAGE_KEY, payments);
+      return newPayment;
     }
-
-    return {
-      id: data.id,
-      bookingId: data.booking_id,
-      bookingOrderNumber: data.booking_order_number,
-      customerName: data.customer_name,
-      amount: data.amount,
-      method: data.method as PaymentMethod,
-      status: data.status as PaymentStatus,
-      type: (data.payment_type || "dp") as PaymentType,
-      proofImage: data.proof_image_url || data.proof_image || "",
-      notes: data.notes || "",
-      verifiedBy: data.verified_by || "",
-      verifiedAt: data.verified_at || "",
-      createdAt: data.created_at,
-    };
+  } catch (err) {
+    console.warn("[PaymentService] createPayment error:", err);
   }
 
   // Fallback
@@ -248,7 +182,24 @@ export const verifyPayment = async (
   verifiedBy: string,
   notes?: string
 ): Promise<boolean> => {
-  return updatePaymentStatus(paymentId, "verified", verifiedBy, notes);
+  try {
+    const response = await apiClient.verifyPayment(paymentId, notes);
+    if (response.success) {
+      // Update local cache
+      const payments = getLocalData<Payment[]>(STORAGE_KEY, []);
+      const updatedPayments = payments.map((p) =>
+        p.id === paymentId
+          ? { ...p, status: "verified" as PaymentStatus, verifiedBy, verifiedAt: new Date().toISOString() }
+          : p
+      );
+      setLocalData(STORAGE_KEY, updatedPayments);
+      return true;
+    }
+  } catch (err) {
+    console.warn("[PaymentService] verifyPayment error:", err);
+  }
+
+  return false;
 };
 
 /**
@@ -259,7 +210,24 @@ export const rejectPayment = async (
   verifiedBy: string,
   notes?: string
 ): Promise<boolean> => {
-  return updatePaymentStatus(paymentId, "rejected", verifiedBy, notes);
+  try {
+    const response = await apiClient.rejectPayment(paymentId, notes);
+    if (response.success) {
+      // Update local cache
+      const payments = getLocalData<Payment[]>(STORAGE_KEY, []);
+      const updatedPayments = payments.map((p) =>
+        p.id === paymentId
+          ? { ...p, status: "rejected" as PaymentStatus, verifiedBy, verifiedAt: new Date().toISOString(), notes: notes || p.notes }
+          : p
+      );
+      setLocalData(STORAGE_KEY, updatedPayments);
+      return true;
+    }
+  } catch (err) {
+    console.warn("[PaymentService] rejectPayment error:", err);
+  }
+
+  return false;
 };
 
 /**
@@ -271,61 +239,13 @@ export const updatePaymentStatus = async (
   verifiedBy?: string,
   notes?: string
 ): Promise<boolean> => {
-  const timestamp = new Date().toISOString();
-
-  if (isSupabaseConfigured()) {
-    const client = getSupabaseClient();
-    if (!client) return false;
-
-    const updates: Record<string, string> = { status };
-    if (verifiedBy) updates.verified_by = verifiedBy;
-    if (notes) updates.notes = notes;
-
-    if (status === "verified" || status === "rejected") {
-      updates.verified_at = timestamp;
-    }
-
-    const { error } = await client
-      .from("payments")
-      .update(updates)
-      .eq("id", paymentId);
-
-    if (error) {
-      console.error("[PaymentService] updatePaymentStatus error:", error);
-      return false;
-    }
-
-    // If verified, also update booking paid amount
-    if (status === "verified" && verifiedBy) {
-      const payment = await getPaymentById(paymentId);
-      if (payment) {
-        await client.rpc("add_booking_payment", {
-          p_order_number: payment.bookingOrderNumber,
-          p_amount: payment.amount,
-        }).catch(() => {
-          // RPC might not exist, ignore
-        });
-      }
-    }
-
-    return true;
+  if (status === "verified") {
+    return verifyPayment(paymentId, verifiedBy || "", notes);
+  } else if (status === "rejected") {
+    return rejectPayment(paymentId, verifiedBy || "", notes);
   }
 
-  // Fallback
-  const payments = getLocalData<Payment[]>(STORAGE_KEY, []);
-  const updatedPayments = payments.map((p) =>
-    p.id === paymentId
-      ? {
-          ...p,
-          status,
-          verifiedBy: verifiedBy || p.verifiedBy,
-          verifiedAt: (status === "verified" || status === "rejected") ? timestamp : p.verifiedAt,
-          notes: notes !== undefined ? notes : p.notes,
-        }
-      : p
-  );
-  setLocalData(STORAGE_KEY, updatedPayments);
-  return true;
+  return false;
 };
 
 // ============================================================================
@@ -348,28 +268,6 @@ export const uploadPaymentProof = async (
     reader.onload = async (e) => {
       const base64 = e.target?.result as string;
       let proofUrl = base64;
-
-      if (isSupabaseConfigured()) {
-        const client = getSupabaseClient();
-        if (client) {
-          try {
-            const fileName = `payment_${orderNumber}_${Date.now()}.${file.name.split(".").pop()}`;
-            const { error: uploadError } = await client.storage
-              .from("payment-proofs")
-              .upload(fileName, file);
-
-            if (!uploadError) {
-              const { data } = client.storage
-                .from("payment-proofs")
-                .getPublicUrl(fileName);
-
-              proofUrl = data.publicUrl;
-            }
-          } catch (err) {
-            console.error("[PaymentService] upload payment proof error:", err);
-          }
-        }
-      }
 
       // Create payment record
       const payment = await createPayment({

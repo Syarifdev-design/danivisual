@@ -345,17 +345,17 @@ export default function PackageSelectionPage() {
               </div>
 
               {categoryAddons.length > 0 && (
-                <div className="border-t border-[#e8ded0] bg-white px-3 py-4 sm:px-5 sm:py-6 lg:px-7">
-                  <div className="mb-3 flex flex-col gap-2 sm:mb-5 sm:flex-row sm:items-end sm:justify-between">
+                <div className="border-t border-[#e8ded0] bg-white px-3 py-4 sm:px-5 sm:py-5 lg:px-7">
+                  <div className="mb-3 flex flex-col gap-1.5 sm:mb-4 sm:flex-row sm:items-end sm:justify-between">
                     <div>
-                      <p className="mb-2 text-[10px] font-semibold tracking-[0.24em] text-[#b89a63]">
+                      <p className="mb-1.5 text-[10px] font-semibold tracking-[0.24em] text-[#b89a63]">
                         {t({ ID: "Add-on Pilihan", EN: "Optional Add-ons" })}
                       </p>
-                      <h3 className="text-xl sm:text-2xl" style={{ fontFamily: "var(--font-heading)" }}>
+                      <h3 className="text-lg sm:text-xl" style={{ fontFamily: "var(--font-heading)" }}>
                         {t({ ID: `Tambahan ${selectedCategory.name}`, EN: `${selectedCategory.name} Enhancements` })}
                       </h3>
                     </div>
-                    <p className="max-w-sm text-xs leading-relaxed text-foreground-secondary sm:text-sm">
+                    <p className="max-w-sm text-xs leading-relaxed text-foreground-secondary">
                       {t({
                         ID: "Centang add-on untuk menambahkannya ke rincian checkout.",
                         EN: "Select add-ons to include them in your checkout summary.",
@@ -363,55 +363,68 @@ export default function PackageSelectionPage() {
                     </p>
                   </div>
 
-                  <div className="grid gap-2 sm:gap-3 lg:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
                     {categoryAddons.map((addon, addonIndex) => {
                       const selected = booking.selectedAddons.find((item) => item.id === addon.id);
 
                       return (
                         <div
                           key={addon.id}
-                          className={`addon-option-card relative grid gap-2 overflow-hidden border px-3 py-3 transition-all duration-300 sm:grid-cols-[1fr_auto] sm:items-center sm:gap-3 sm:px-4 sm:py-4 ${
+                          onClick={() => booking.toggleAddon(addon.id)}
+                          className={[
+                            "group relative flex cursor-pointer items-start gap-3 rounded-xl border px-4 py-3 transition-all duration-200",
                             selected
-                              ? "is-selected border-[#c8a96d] bg-[#fff8ec] shadow-[0_12px_30px_rgba(38,28,16,0.075)]"
-                              : "border-[#e8ded0] bg-white hover:border-[#c8a96d]/70"
-                          }`}
+                              ? "border-[#b8934f] bg-[#fff8ec] shadow-[0_4px_14px_rgba(38,28,16,0.04)]"
+                              : "border-[#e6dac8] bg-white hover:border-[#c8a96a] hover:bg-[#fffaf3]",
+                          ].join(" ")}
                           style={{ animationDelay: `${addonIndex * 45}ms` }}
                         >
-                          <span className="addon-option-accent" />
-                          <label className="relative z-10 flex cursor-pointer items-start gap-2.5 sm:gap-3">
-                            <input
-                              type="checkbox"
-                              checked={Boolean(selected)}
-                              onChange={() => booking.toggleAddon(addon.id)}
-                              className="peer sr-only"
-                            />
-                            <span className="addon-option-check mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center border sm:mt-1">
-                              <Check size={11} strokeWidth={2.6} className="opacity-0 transition peer-checked:opacity-100" />
-                            </span>
-                            <span>
-                              <span className="block text-xs font-medium text-[#111111] sm:text-sm">{addon.name}</span>
-                              <span className="mt-0.5 block text-[11px] text-foreground-secondary sm:mt-1 sm:text-xs">
-                                {addon.unit
-                                  ? t({ ID: `Kuantitas per ${addon.unit}`, EN: `Quantity per ${addon.unit === "hari" ? "day" : "hour"}` })
-                                  : t({ ID: "Sekali tambah", EN: "One-time addition" })}
-                              </span>
-                            </span>
-                          </label>
+                          {/* Checkbox */}
+                          <span className={[
+                            "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border transition-all duration-200",
+                            selected
+                              ? "border-[#b8934f] bg-[#b8934f]"
+                              : "border-[#d4c4a8] bg-white group-hover:border-[#c8a96a]",
+                          ].join(" ")}>
+                            {selected && <Check size={11} strokeWidth={2.6} className="text-white" />}
+                          </span>
 
-                          <div className="relative z-10 flex items-center justify-between gap-4 sm:justify-end">
-                            <strong className="text-xs text-[#111111] sm:text-sm">{addon.displayPrice}</strong>
-                            {addon.hasQuantity && selected && (
-                              <div className="flex items-center border border-[#d8c7a3] bg-white shadow-[0_8px_18px_rgba(38,28,16,0.055)]">
-                                <button type="button" onClick={() => booking.setAddonQuantity(addon.id, selected.quantity - 1)} className="flex h-8 w-8 items-center justify-center sm:h-9 sm:w-9">
-                                  <Minus size={14} />
-                                </button>
-                                <span className="w-7 text-center text-xs sm:w-8 sm:text-sm">{selected.quantity}</span>
-                                <button type="button" onClick={() => booking.setAddonQuantity(addon.id, selected.quantity + 1)} className="flex h-8 w-8 items-center justify-center sm:h-9 sm:w-9">
-                                  <Plus size={14} />
-                                </button>
-                              </div>
-                            )}
+                          {/* Content */}
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-start justify-between gap-3">
+                              <span className="text-[15px] font-semibold leading-snug text-[#111111]">{addon.name}</span>
+                              <span className="shrink-0 text-[15px] font-bold text-[#111111]">{addon.displayPrice}</span>
+                            </div>
+                            <p className="mt-1 text-[12px] leading-snug text-foreground-secondary">
+                              {addon.unit
+                                ? t({ ID: `Per ${addon.unit}`, EN: `Per ${addon.unit === "hari" ? "day" : "hour"}` })
+                                : t({ ID: "Sekali tambah", EN: "One-time addition" })}
+                            </p>
                           </div>
+
+                          {/* Quantity controls */}
+                          {addon.hasQuantity && selected && (
+                            <div
+                              className="absolute -top-3 right-3 flex items-center rounded-lg border border-[#d8c7a3] bg-white shadow-[0_4px_12px_rgba(38,28,16,0.06)]"
+                              onClick={(e) => e.stopPropagation()}
+                            >
+                              <button
+                                type="button"
+                                onClick={() => booking.setAddonQuantity(addon.id, selected.quantity - 1)}
+                                className="flex h-7 w-7 items-center justify-center text-neutral-600 transition hover:text-neutral-900"
+                              >
+                                <Minus size={12} />
+                              </button>
+                              <span className="w-6 text-center text-xs font-semibold text-[#111111]">{selected.quantity}</span>
+                              <button
+                                type="button"
+                                onClick={() => booking.setAddonQuantity(addon.id, selected.quantity + 1)}
+                                className="flex h-7 w-7 items-center justify-center text-neutral-600 transition hover:text-neutral-900"
+                              >
+                                <Plus size={12} />
+                              </button>
+                            </div>
+                          )}
                         </div>
                       );
                     })}

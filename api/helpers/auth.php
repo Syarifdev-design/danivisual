@@ -1,125 +1,87 @@
 <?php
-/**
- * Authentication Helper
- * DaniVisual PHP Backend
- */
+// Auth helpers
 
-declare(strict_types=1);
+// ============================================================================
+// Session Helpers
+// ============================================================================
 
-require_once __DIR__ . '/../config/database.php';
-
-/**
- * Check if user is logged in
- */
-function isAuthenticated(): bool
-{
+function isLoggedIn() {
     return isset($_SESSION['user_id']) && !empty($_SESSION['user_id']);
 }
 
-/**
- * Get current user ID
- */
-function getCurrentUserId(): ?string
-{
+function isAuthenticated() {
+    return isLoggedIn();
+}
+
+function getUserId() {
     return $_SESSION['user_id'] ?? null;
 }
 
-/**
- * Get current user role
- */
-function getCurrentUserRole(): ?string
-{
+function getCurrentUserId() {
+    return getUserId();
+}
+
+function getUserRole() {
     return $_SESSION['user_role'] ?? null;
 }
 
-/**
- * Get current user data
- */
-function getCurrentUser(): ?array
-{
-    if (!isAuthenticated()) {
-        return null;
-    }
-
+function getUser() {
+    if (!isLoggedIn()) return null;
     $db = Database::getInstance();
     $stmt = $db->prepare('SELECT * FROM users WHERE id = ? AND is_active = 1');
-    $stmt->execute([getCurrentUserId()]);
-    $user = $stmt->fetch();
-
-    return $user ?: null;
+    $stmt->execute([getUserId()]);
+    return $stmt->fetch(PDO::FETCH_ASSOC);
 }
 
-/**
- * Require authentication - exit if not logged in
- */
-function requireAuth(): array
-{
-    $user = getCurrentUser();
+function getCurrentUser() {
+    return getUser();
+}
 
-    if ($user === null) {
-        errorResponse('Authentication required', 401);
+// ============================================================================
+// Authorization Helpers
+// ============================================================================
+
+function requireAuth() {
+    $u = getUser();
+    if (!$u) {
+        respondError('Authentication required', 401);
     }
-
-    return $user;
+    return $u;
 }
 
-/**
- * Require specific roles - exit if not authorized
- */
-function requireRole(string ...$roles): array
-{
-    $user = requireAuth();
-
-    if (!in_array($user['role'], $roles)) {
-        errorResponse('Forbidden - insufficient permissions', 403);
+function requireRole() {
+    $u = requireAuth();
+    $roles = func_get_args();
+    if (!in_array($u['role'], $roles)) {
+        respondError('Insufficient permissions', 403);
     }
-
-    return $user;
+    return $u;
 }
 
-/**
- * Require admin access (super_admin, admin, finance, editor, staff, photographer, videographer)
- */
-function requireAdmin(): array
-{
+function requireAdmin() {
     return requireRole('super_admin', 'admin', 'finance', 'editor', 'photographer', 'videographer', 'staff');
 }
 
-/**
- * Require super admin access
- */
-function requireSuperAdmin(): array
-{
+function requireSuperAdmin() {
     return requireRole('super_admin');
 }
 
-/**
- * Login user
- */
-function loginUser(string $email, string $password): ?array
-{
+// ============================================================================
+// Login/Logout
+// ============================================================================
+
+function doLogin($email, $password) {
     $db = Database::getInstance();
-
     $stmt = $db->prepare('SELECT * FROM users WHERE email = ? AND is_active = 1');
-    $stmt->execute([strtolower(trim($email)]);
-    $user = $stmt->fetch();
+    $stmt->execute([strtolower(trim($email))]);
+    $user = $stmt->fetch(PDO::FETCH_ASSOC);
 
-    if ($user === false) {
-        return null;
-    }
+    if (!$user) return null;
+    if (!password_verify($password, $user['password_hash'] ?? '')) return null;
 
-    // Verify password
-    if (!password_verify($password, $user['password_hash'])) {
-        return null;
-    }
-
-    // Update last login
-    $updateStmt = $db->prepare("
-        UPDATE users
-        SET last_login = NOW(), login_count = login_count + 1
-        WHERE id = ?
-    ");
-    $updateStmt->execute([$user['id']]);
+    // Update login
+    $upd = $db->prepare('UPDATE users SET last_login = NOW() WHERE id = ?');
+    $upd->execute([$user['id']]);
 
     // Set session
     $_SESSION['user_id'] = $user['id'];
@@ -127,165 +89,85 @@ function loginUser(string $email, string $password): ?array
     $_SESSION['user_role'] = $user['role'];
     $_SESSION['user_name'] = $user['name'];
 
-    // Log activity
-    logActivity($user['id'], $user['username'], 'login', 'users', $user['id'], 'User logged in');
+    recordActivity($user['id'], $user['username'], 'login', 'users', $user['id'], 'Logged in');
 
+    unset($user['password_hash']);
     return $user;
 }
 
-/**
- * Logout current user
- */
-function logoutUser(): void
-{
-    if (isAuthenticated()) {
-        logActivity(
-            getCurrentUserId(),
-            $_SESSION['user_email'] ?? 'unknown',
-            'logout',
-            'users',
-            getCurrentUserId(),
-            'User logged out'
-        );
+function doLogout() {
+    if (isLoggedIn()) {
+        recordActivity(getUserId(), $_SESSION['user_email'] ?? '', 'logout', 'users', getUserId(), 'Logged out');
     }
-
-    // Clear session
     session_destroy();
     session_start();
-    session_regenerate_id(true);
 }
 
-/**
- * Hash password using bcrypt
- */
-function hashPassword(string $password): string
-{
-    return password_hash($password, PASSWORD_BCRYPT, [
-        'cost' => 12,
-    ]);
+function logoutUser() {
+    doLogout();
 }
 
-/**
- * Create new user
- */
-function createUser(array $data): ?array
-{
+// ============================================================================
+// User Management
+// ============================================================================
+
+function hashPassword($pw) {
+    return password_hash($pw, PASSWORD_BCRYPT);
+}
+
+function createUser($data) {
     $db = Database::getInstance();
 
-    // Check if email exists
-    $stmt = $db->prepare('SELECT id FROM users WHERE email = ?');
-    $stmt->execute([strtolower(trim($data['email']))];
-    if ($stmt->fetch()) {
-        return null; // Email already exists
-    }
+    // Check existing
+    $email = strtolower(trim($data['email'] ?? ''));
+    $check = $db->prepare('SELECT id FROM users WHERE email = ?');
+    $check->execute([$email]);
+    if ($check->fetch()) return null;
 
-    // Generate ID
-    $id = generateUUID();
+    $id = makeUUID();
+    $username = $data['username'] ?? explode('@', $email)[0];
+    $hash = hashPassword($data['password'] ?? 'changeme');
 
-    // Insert user
-    $stmt = $db->prepare("
-        INSERT INTO users
-        (id, email, username, password_hash, name, phone, role, position, is_active, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())
-    ");
+    $ins = $db->prepare('INSERT INTO users (id,email,username,password_hash,name,phone,role,position,is_active,created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, NOW())');
+    $ins->execute([$id, $email, $username, $hash, $data['name'], $data['phone'] ?? null, $data['role'] ?? 'customer', $data['position'] ?? null]);
 
-    $stmt->execute([
-        $id,
-        strtolower(trim($data['email'])),
-        $data['username'] ?? explode('@', $data['email'])[0],
-        hashPassword($data['password'] ?? $data['temporary_password'] ?? 'changeme123'),
-        $data['name'],
-        $data['phone'] ?? null,
-        $data['role'] ?? 'customer',
-        $data['position'] ?? null,
-    ]);
+    recordActivity(getUserId(), $_SESSION['user_email'] ?? 'system', 'create_user', 'users', $id, 'Created user: ' . $email);
 
-    // Fetch created user
-    $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
-    $stmt->execute([$id]);
-    $user = $stmt->fetch();
-
-    // Log activity
-    logActivity(
-        getCurrentUserId(),
-        $_SESSION['user_email'] ?? 'system',
-        'create_user',
-        'users',
-        $id,
-        "Created user: {$user['email']}"
-    );
-
-    return $user;
+    $get = $db->prepare('SELECT * FROM users WHERE id = ?');
+    $get->execute([$id]);
+    $u = $get->fetch(PDO::FETCH_ASSOC);
+    unset($u['password_hash']);
+    return $u;
 }
 
-/**
- * Update user
- */
-function updateUser(string $id, array $data): ?array
-{
+function updateUser($id, $data) {
     $db = Database::getInstance();
-
-    // Build update query dynamically
     $updates = [];
-    $values = [];
-
-    $allowedFields = ['name', 'phone', 'role', 'position', 'is_active', 'avatar_url', 'whatsapp'];
-
-    foreach ($allowedFields as $field) {
-        if (isset($data[$field])) {
-            $updates[] = "{$field} = ?";
-            $values[] = $data[$field];
+    $vals = [];
+    foreach (['name', 'phone', 'role', 'position', 'is_active'] as $f) {
+        if (isset($data[$f])) {
+            $updates[] = $f . ' = ?';
+            $vals[] = $data[$f];
         }
     }
+    if (empty($updates)) return null;
 
-    if (empty($updates)) {
-        return null;
-    }
-
-    $values[] = $id;
-    $sql = "UPDATE users SET " . implode(', ', $updates) . ', updated_at = NOW() WHERE id = ?';
-    $stmt = $db->prepare($sql);
-    $stmt->execute($values);
-
-    // Fetch updated user
-    $stmt = $db->prepare('SELECT * FROM users WHERE id = ?');
-    $stmt->execute([$id]);
-    $user = $stmt->fetch();
-
-    // Log activity
-    logActivity(
-        getCurrentUserId(),
-        $_SESSION['user_email'] ?? 'system',
-        'update_user',
-        'users',
-        $id,
-        "Updated user: {$user['email']}"
-    );
-
-    return $user;
+    $vals[] = $id;
+    $sql = 'UPDATE users SET ' . implode(', ', $updates) . ', updated_at = NOW() WHERE id = ?';
+    $db->prepare($sql)->execute($vals);
+    recordActivity(getUserId(), $_SESSION['user_email'] ?? '', 'update_user', 'users', $id, 'Updated user');
 }
 
-/**
- * Delete user (soft delete - set is_active = 0)
- */
-function deleteUser(string $id): bool
-{
+function deleteUser($id) {
     $db = Database::getInstance();
+    $db->prepare('UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = ?')->execute([$id]);
+    recordActivity(getUserId(), $_SESSION['user_email'] ?? '', 'delete_user', 'users', $id, 'Deleted user');
+}
 
-    $stmt = $db->prepare("UPDATE users SET is_active = 0, updated_at = NOW() WHERE id = ?");
-    $result = $stmt->execute([$id]);
+// ============================================================================
+// Activity Logging (alias for recordActivity)
+// ============================================================================
 
-    if ($result) {
-        // Log activity
-        logActivity(
-            getCurrentUserId(),
-            $_SESSION['user_email'] ?? 'system',
-            'delete_user',
-            'users',
-            $id,
-            "Deleted user ID: {$id}"
-        );
-    }
-
-    return $result;
+function logActivity($uid, $uname, $action, $etype = null, $eid = null, $desc = null) {
+    recordActivity($uid, $uname, $action, $etype, $eid, $desc);
 }

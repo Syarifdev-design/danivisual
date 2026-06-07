@@ -1,40 +1,22 @@
 <?php
-/**
- * Login Endpoint
- * POST /api/auth/login.php
- */
-
-declare(strict_types=1);
+// Login API
 
 require_once __DIR__ . '/../config/database.php';
 require_once __DIR__ . '/../helpers/response.php';
 require_once __DIR__ . '/../helpers/auth.php';
 
-try {
-    $data = getRequestBody();
+$body = getBody();
+$email = isset($body['email']) ? $body['email'] : '';
+$password = isset($body['password']) ? $body['password'] : '';
 
-    // Validate required fields
-    $errors = validateRequired($data, ['email', 'password']);
-    if ($errors !== null) {
-        errorResponse('Validation failed', 400, $errors);
-    }
-
-    $email = sanitize($data['email']);
-    $password = $data['password'];
-
-    // Attempt login
-    $user = loginUser($email, $password);
-
-    if ($user === null) {
-        errorResponse('Email atau password salah', 401);
-    }
-
-    // Remove password hash from response
-    unset($user['password_hash']);
-
-    successResponse($user, 'Login berhasil');
-
-} catch (Exception $e) {
-    error_log('Login error: ' . $e->getMessage());
-    errorResponse('Terjadi kesalahan saat login', 500);
+if (empty($email) || empty($password)) {
+    respondError('Email and password required');
 }
+
+$user = doLogin($email, $password);
+if (!$user) {
+    http_response_code(401);
+    respondJSON(['success' => false, 'message' => 'Invalid credentials']);
+}
+
+respondOK($user, 'Login berhasil');

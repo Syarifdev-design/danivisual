@@ -1,0 +1,38 @@
+# ================================================================================
+# DaniVisual - robots.txt
+# ================================================================================
+# https://developers.google.com/search/docs/crawling-indexing/robots-meta-tag
+# ================================================================================
+
+User-agent: *
+
+# Allow all crawlers
+Allow: /
+
+# Sitemap
+Sitemap: https://danivisual.com/sitemap.xml
+
+# Disallow admin area
+Disallow: /admin/
+
+# Disallow API endpoints (optional - uncomment if needed)
+# Disallow: /api/
+
+# Crawl delay (optional)
+Crawl-delay: 1
+
+# ================================================================================
+# Specific bot directives
+# ================================================================================
+
+# Googlebot
+User-agent: Googlebot
+Allow: /
+
+# Bingbot
+User-agent: Bingbot
+Allow: /
+
+# Slurp (Yahoo)
+User-agent: Slurp
+Allow: /

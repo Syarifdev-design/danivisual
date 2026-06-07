@@ -1,0 +1,115 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+    <!-- ================================================================================
+         DaniVisual Sitemap
+         Update lastmod dates when content changes
+         ================================================================================ -->
+
+    <!-- Homepage -->
+    <url>
+        <loc>https://danivisual.com/</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>1.0</priority>
+    </url>
+
+    <!-- Services Pages -->
+    <url>
+        <loc>https://danivisual.com/services</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
+    <url>
+        <loc>https://danivisual.com/services/wedding</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <url>
+        <loc>https://danivisual.com/services/prewedding</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <url>
+        <loc>https://danivisual.com/services/engagement</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <url>
+        <loc>https://danivisual.com/services/ngunduh-mantu</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- Packages -->
+    <url>
+        <loc>https://danivisual.com/packages</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
+    <!-- Portfolio -->
+    <url>
+        <loc>https://danivisual.com/portfolio</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.8</priority>
+    </url>
+
+    <!-- About -->
+    <url>
+        <loc>https://danivisual.com/about</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+
+    <!-- Contact -->
+    <url>
+        <loc>https://danivisual.com/contact</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.7</priority>
+    </url>
+
+    <!-- FAQ -->
+    <url>
+        <loc>https://danivisual.com/faq</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>monthly</changefreq>
+        <priority>0.6</priority>
+    </url>
+
+    <!-- Booking -->
+    <url>
+        <loc>https://danivisual.com/booking</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>weekly</changefreq>
+        <priority>0.9</priority>
+    </url>
+
+    <!-- Terms & Privacy -->
+    <url>
+        <loc>https://danivisual.com/terms</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+    <url>
+        <loc>https://danivisual.com/privacy</loc>
+        <lastmod>2026-06-07</lastmod>
+        <changefreq>yearly</changefreq>
+        <priority>0.4</priority>
+    </url>
+
+</urlset>

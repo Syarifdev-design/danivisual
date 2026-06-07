@@ -423,7 +423,7 @@ CREATE TABLE IF NOT EXISTS `attendance` (
     `id` CHAR(36) PRIMARY KEY,
     `employee_id` CHAR(36) NOT NULL,
     `date` DATE NOT NULL,
-    `status` ENUM('present', 'absent', 'late', ' excused') DEFAULT 'present',
+    `status` ENUM('present', 'absent', 'late', 'excused') DEFAULT 'present',
     `check_in_time` TIME DEFAULT NULL,
     `check_out_time` TIME DEFAULT NULL,
     `notes` TEXT DEFAULT NULL,

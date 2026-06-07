@@ -1,13 +1,17 @@
 /**
- * Supabase Client Configuration
+ * Supabase Client Configuration (DEPRECATED)
  *
- * Konfigurasi untuk koneksi ke Supabase backend.
- * Jika environment variables belum diset, aplikasi tetap berjalan
- * menggunakan localStorage fallback.
+ * ⚠️ DEPRECATED: Backend sudah menggunakan PHP/MySQL.
+ * File ini dipertahankan sebagai fallback jika sewaktu-waktu
+ * ingin migrasi kembali ke Supabase.
  *
- * Environment variables yang dibutuhkan:
+ * Untuk saat ini, gunakan apiClient.ts untuk semua API calls.
+ *
+ * Environment variables (tidak diperlukan lagi):
  * - VITE_SUPABASE_URL    → URL project Supabase (https://xxx.supabase.co)
  * - VITE_SUPABASE_ANON_KEY → Anonymous key dari Supabase dashboard
+ *
+ * @deprecated Gunakan src/lib/apiClient.ts sebagai gantinya
  */
 
 import { createClient } from "@supabase/supabase-js";
@@ -24,28 +28,25 @@ export type SupabaseConfig = {
 export type ConnectionStatus = "connected" | "not_configured" | "error";
 
 // ============================================================================
-// Configuration Detection
+// DEPRECATED: Configuration Detection
 // ============================================================================
 
 const isDev = import.meta.env.DEV;
 
 /**
+ * @deprecated Backend sudah menggunakan PHP/MySQL
  * Cek apakah Supabase sudah dikonfigurasi
  * Mengabaikan placeholder values
  */
 export const isSupabaseConfigured = (): boolean => {
-  const url = import.meta.env.VITE_SUPABASE_URL;
-  const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  // Selalu return false karena kita sudah pakai PHP/MySQL
+  return false;
 
-  // Check for placeholder values
-  const isPlaceholder = !url ||
-    url === "your-project-url" ||
-    url === "https://your-project.supabase.co" ||
-    !key ||
-    key === "your-anon-key" ||
-    key === "your-anon-key-here";
-
-  return Boolean(url && key && !isPlaceholder);
+  // Kode lama (dipertahankan untuk referensi):
+  // const url = import.meta.env.VITE_SUPABASE_URL;
+  // const key = import.meta.env.VITE_SUPABASE_ANON_KEY;
+  // const isPlaceholder = !url || url === "your-project-url" || ...
+  // return Boolean(url && key && !isPlaceholder);
 };
 
 /**
